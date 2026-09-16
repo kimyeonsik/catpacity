@@ -39,6 +39,18 @@ public class NotificationService {
         }
     }
     
+    public func sendUpdateNotification(version: String, releaseUrl: String) {
+        let lastNotifiedKey = "catpacity_last_notified_update_version"
+        let lastNotified = UserDefaults.standard.string(forKey: lastNotifiedKey)
+        if lastNotified == version { return }
+        
+        UserDefaults.standard.set(version, forKey: lastNotifiedKey)
+        sendNotification(
+            title: "🎉 Catpacity 새 버전(\(version)) 출시!",
+            body: "새로운 기능과 개선 사항이 포함된 새 버전이 배포되었습니다. 클릭하여 확인하세요."
+        )
+    }
+    
     private func sendNotification(title: String, body: String) {
         let content = UNMutableNotificationContent()
         content.title = title

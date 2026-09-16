@@ -6,8 +6,6 @@ public class GeminiService {
     private let defaults = UserDefaults.standard
     private let apiKeyKey = "catpacity_gemini_api_key"
     private let planTypeKey = "catpacity_gemini_plan_type"
-    private let manualUsedPercentKey = "catpacity_gemini_manual_used_percent"
-    private let lastResetTimestampKey = "catpacity_gemini_last_reset_time"
     
     public var apiKey: String {
         get { defaults.string(forKey: apiKeyKey) ?? ProcessInfo.processInfo.environment["GEMINI_API_KEY"] ?? "" }
@@ -24,8 +22,165 @@ public class GeminiService {
         
         if !key.isEmpty {
             fetchWithApiKey(key: key, completion: completion)
+        } else if let agyBinary = findAgyBinary() {
+            fetchWithAgyCli(binary: agyBinary, completion: completion)
         } else {
             checkLocalGoogleCli(completion: completion)
+        }
+    }
+    
+    private func findAgyBinary() -> String? {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let candidates = [
+            "\(home)/.local/bin/agy",
+            "/opt/homebrew/bin/agy",
+            "/usr/local/bin/agy",
+            "/usr/bin/agy",
+            "\(home)/.gemini/antigravity-cli/bin/agy"
+        ]
+        for path in candidates {
+            if FileManager.default.fileExists(atPath: path) {
+                return path
+            }
+        }
+        
+        if let pathEnv = ProcessInfo.processInfo.environment["PATH"] {
+            for dir in pathEnv.components(separatedBy: ":") {
+                let candidate = (dir as NSString).appendingPathComponent("agy")
+                if FileManager.default.fileExists(atPath: candidate) {
+                    return candidate
+                }
+            }
+        }
+        return nil
+    }
+    
+    private func fetchWithAgyCli(binary: String, completion: @escaping (GeminiUsage) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: binary)
+            process.arguments = ["-p", "/quota"]
+            
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = Pipe()
+            
+            var didComplete = false
+            let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
+            timer.schedule(deadline: .now() + 8.0)
+            timer.setEventHandler {
+                if !didComplete {
+                    didComplete = true
+                    process.terminate()
+                    self.checkLocalGoogleCli(completion: completion)
+                }
+            }
+            timer.resume()
+            
+            do {
+                try process.run()
+                process.waitUntilExit()
+                
+                if didComplete { return }
+                didComplete = true
+                timer.cancel()
+                
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                guard let output = String(data: data, encoding: .utf8), !output.isEmpty else {
+                    self.checkLocalGoogleCli(completion: completion)
+                    return
+                }
+                
+                self.parseAgyQuotaOutput(output: output, completion: completion)
+            } catch {
+                if didComplete { return }
+                didComplete = true
+                timer.cancel()
+                self.checkLocalGoogleCli(completion: completion)
+            }
+        }
+    }
+    
+    private func parseAgyQuotaOutput(output: String, completion: @escaping (GeminiUsage) -> Void) {
+        let isoFormatter = ISO8601DateFormatter()
+        
+        var fiveHourRemaining: Double? = nil
+        var fiveHourResetDate: Date? = nil
+        var weeklyRemaining: Double? = nil
+        var weeklyResetDate: Date? = nil
+        
+        let lines = output.components(separatedBy: "\n")
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            
+            let parts = trimmed.components(separatedBy: "\t")
+            guard parts.count >= 4 else { continue }
+            
+            let modelName = parts[0].trimmingCharacters(in: .whitespaces)
+            let limitType = parts[1].trimmingCharacters(in: .whitespaces)
+            let pctString = parts[2].trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "%", with: "")
+            let dateString = parts[3].trimmingCharacters(in: .whitespaces)
+            
+            guard modelName.lowercased().contains("gemini") else { continue }
+            
+            let remainingPct = Double(pctString)
+            let parsedDate = isoFormatter.date(from: dateString)
+            
+            if limitType.lowercased().contains("five hour") {
+                fiveHourRemaining = remainingPct
+                fiveHourResetDate = parsedDate
+            } else if limitType.lowercased().contains("weekly") {
+                weeklyRemaining = remainingPct
+                weeklyResetDate = parsedDate
+            }
+        }
+        
+        // If no Gemini quota lines were parsed, fallback
+        guard fiveHourRemaining != nil || weeklyRemaining != nil else {
+            checkLocalGoogleCli(completion: completion)
+            return
+        }
+        
+        // Active account email detection
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let accountsPath = home.appendingPathComponent(".gemini/google_accounts.json").path
+        var activeAccount: String? = nil
+        if let data = FileManager.default.contents(atPath: accountsPath),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let active = json["active"] as? String, !active.isEmpty {
+            activeAccount = active
+        }
+        
+        let planLabel: String
+        if let email = activeAccount {
+            planLabel = "Gemini (\(email))"
+        } else {
+            planLabel = "Gemini (Antigravity)"
+        }
+        
+        // Prioritize the short-term 5-hour limit for the primary progress bar
+        let primaryRemaining = fiveHourRemaining ?? weeklyRemaining ?? 100.0
+        let primaryUsed = max(0.0, min(100.0, 100.0 - primaryRemaining))
+        let primaryReset = fiveHourResetDate ?? weeklyResetDate
+        
+        DispatchQueue.main.async {
+            completion(GeminiUsage(
+                planName: planLabel,
+                usedPercent: primaryUsed,
+                usedRequests: nil,
+                limitRequests: nil,
+                remainingTokens: nil,
+                limitTokens: nil,
+                resetsAt: primaryReset,
+                lastUpdated: Date(),
+                isConnected: true,
+                errorMessage: nil,
+                weeklyRemainingPercent: weeklyRemaining,
+                weeklyResetsAt: weeklyResetDate
+            ))
         }
     }
     
@@ -41,8 +196,7 @@ public class GeminiService {
         }
         
         if let email = activeAccount {
-            // Local Gemini CLI active login found
-            let resetDate = calculateNextRollingReset(intervalHours: 3)
+            // Local login found but Antigravity CLI telemetry could not be fetched
             DispatchQueue.main.async {
                 completion(GeminiUsage(
                     planName: "Gemini (\(email))",
@@ -51,10 +205,12 @@ public class GeminiService {
                     limitRequests: nil,
                     remainingTokens: nil,
                     limitTokens: nil,
-                    resetsAt: resetDate,
+                    resetsAt: nil,
                     lastUpdated: Date(),
-                    isConnected: true,
-                    errorMessage: nil
+                    isConnected: false,
+                    errorMessage: "할당량 확인 불가 (Antigravity CLI 또는 API 키 필요)",
+                    weeklyRemainingPercent: nil,
+                    weeklyResetsAt: nil
                 ))
             }
         } else {
@@ -70,7 +226,9 @@ public class GeminiService {
                     resetsAt: nil,
                     lastUpdated: Date(),
                     isConnected: false,
-                    errorMessage: "Gemini 미연동 (API 키 또는 CLI 로그인 필요)"
+                    errorMessage: "Gemini 미연동 (Antigravity 또는 API 키 필요)",
+                    weeklyRemainingPercent: nil,
+                    weeklyResetsAt: nil
                 ))
             }
         }
@@ -117,7 +275,9 @@ public class GeminiService {
                             resetsAt: nextReset,
                             lastUpdated: Date(),
                             isConnected: true,
-                            errorMessage: nil
+                            errorMessage: nil,
+                            weeklyRemainingPercent: nil,
+                            weeklyResetsAt: nil
                         ))
                     }
                     return
@@ -133,7 +293,9 @@ public class GeminiService {
                             resetsAt: nil,
                             lastUpdated: Date(),
                             isConnected: false,
-                            errorMessage: "Gemini API 인증 실패 (HTTP \(httpResponse.statusCode))"
+                            errorMessage: "Gemini API 인증 실패 (HTTP \(httpResponse.statusCode))",
+                            weeklyRemainingPercent: nil,
+                            weeklyResetsAt: nil
                         ))
                     }
                     return
@@ -151,7 +313,9 @@ public class GeminiService {
                     resetsAt: nil,
                     lastUpdated: Date(),
                     isConnected: false,
-                    errorMessage: "Gemini 통신 실패: \(error?.localizedDescription ?? "알 수 없는 오류")"
+                    errorMessage: "Gemini 통신 실패: \(error?.localizedDescription ?? "알 수 없는 오류")",
+                    weeklyRemainingPercent: nil,
+                    weeklyResetsAt: nil
                 ))
             }
         }.resume()

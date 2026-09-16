@@ -96,7 +96,7 @@ public struct SettingsView: View {
                     Text("Gemini API 키 (선택사항 - AI Studio)")
                         .font(.system(size: 10.5))
                         .foregroundColor(.secondary)
-                    SecureField("미입력 시 \"Gemini\" 기본 롤링 리셋 자동 적용", text: $geminiApiKey)
+                    SecureField("미입력 시 Antigravity CLI 및 계정 쿼터 자동 연동", text: $geminiApiKey)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 11))
                         .onChange(of: geminiApiKey) { _ in appState?.refreshGemini() }
@@ -139,17 +139,45 @@ public struct SettingsView: View {
             .background(Color.primary.opacity(0.03))
             .cornerRadius(8)
             
-            Spacer()
-            
-            HStack {
-                Text("Catpacity v1.1.0 • Codex + Gemini + Claude")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-                Spacer()
-                Button("지금 전체 새로고침") {
-                    appState?.refreshAll()
+            VStack(spacing: 8) {
+                Divider()
+                
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Catpacity v1.1.0")
+                            .font(.system(size: 11, weight: .semibold))
+                        if let msg = appState?.updateStatusMessage, !msg.isEmpty {
+                            Text(msg)
+                                .font(.system(size: 9.5))
+                                .foregroundColor(appState?.updateAvailable == true ? .blue : .secondary)
+                        } else {
+                            Text("Codex • Gemini • Claude")
+                                .font(.system(size: 9.5))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        appState?.checkForUpdates(manual: true)
+                    }) {
+                        if appState?.isCheckingUpdate == true {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                                .frame(width: 14, height: 14)
+                        } else {
+                            Text("업데이트 확인")
+                                .font(.system(size: 11))
+                        }
+                    }
+                    .disabled(appState?.isCheckingUpdate == true)
+                    
+                    Button("새로고침") {
+                        appState?.refreshAll()
+                    }
+                    .font(.system(size: 11))
                 }
-                .font(.system(size: 11))
             }
         }
         .padding(16)

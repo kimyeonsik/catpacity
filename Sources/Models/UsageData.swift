@@ -59,6 +59,9 @@ public struct GeminiUsage: Codable {
     public var isConnected: Bool
     public var errorMessage: String?
     
+    public var weeklyRemainingPercent: Double?
+    public var weeklyResetsAt: Date?
+    
     public var remainingPercent: Double {
         return max(0.0, 100.0 - usedPercent)
     }
@@ -74,7 +77,9 @@ public struct GeminiUsage: Codable {
             resetsAt: nil,
             lastUpdated: Date(),
             isConnected: false,
-            errorMessage: nil
+            errorMessage: nil,
+            weeklyRemainingPercent: nil,
+            weeklyResetsAt: nil
         )
     }
 }

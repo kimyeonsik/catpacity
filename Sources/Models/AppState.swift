@@ -10,9 +10,17 @@ public class AppState: ObservableObject {
     @Published public var lastSyncTime: Date = Date()
     @Published public var currentAnimFrame: Int = 0
     
+    // Update Checker
+    @Published public var updateAvailable: Bool = false
+    @Published public var latestVersionTag: String = ""
+    @Published public var latestReleaseUrl: String = ""
+    @Published public var isCheckingUpdate: Bool = false
+    @Published public var updateStatusMessage: String? = nil
+    
     public weak var statusItem: NSStatusItem?
     private var refreshTimer: Timer?
     private var animationTimer: Timer?
+    private var updateCheckTimer: Timer?
     
     private var cachedAttrLines: [NSAttributedString] = []
     private var cachedTextWidth: CGFloat = 0.0
@@ -24,6 +32,11 @@ public class AppState: ObservableObject {
         refreshAll()
         startPeriodicRefresh()
         startMenuBarAnimation()
+        
+        // Check for updates shortly after launch
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { [weak self] in
+            self?.checkForUpdates()
+        }
     }
     
     public func startPeriodicRefresh() {
@@ -231,6 +244,30 @@ public class AppState: ObservableObject {
             button.title = " " + TimeFormatter.formatCountdown(until: resetsAt)
         default:
             button.title = ""
+        }
+    }
+    
+    public func checkForUpdates(manual: Bool = false) {
+        if isCheckingUpdate { return }
+        isCheckingUpdate = true
+        if manual {
+            updateStatusMessage = "최신 버전 확인 중..."
+        }
+        
+        UpdateCheckerService.shared.checkForUpdates(manual: manual) { [weak self] available, tag, url, error in
+            guard let self = self else { return }
+            self.isCheckingUpdate = false
+            self.updateAvailable = available
+            self.latestVersionTag = tag
+            self.latestReleaseUrl = url
+            
+            if let err = error {
+                if manual { self.updateStatusMessage = "확인 실패: \(err)" }
+            } else if available {
+                self.updateStatusMessage = "새 버전(\(tag))이 있습니다!"
+            } else {
+                if manual { self.updateStatusMessage = "현재 최신 버전입니다 (v\(UpdateCheckerService.shared.currentVersion))." }
+            }
         }
     }
 }

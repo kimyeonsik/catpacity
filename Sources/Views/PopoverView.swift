@@ -30,6 +30,30 @@ public struct PopoverView: View {
                 animFrame: appState.currentAnimFrame
             )
             
+            // Update Notification Banner (if newer version available on GitHub)
+            if appState.updateAvailable {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.blue)
+                    Text("새 버전 \(appState.latestVersionTag) 출시!")
+                        .font(.system(size: 11, weight: .semibold))
+                    Spacer()
+                    Button("업데이트") {
+                        let urlStr = appState.latestReleaseUrl.isEmpty ? "https://github.com/kimyeonsik/catpacity/releases/latest" : appState.latestReleaseUrl
+                        if let url = URL(string: urlStr) {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                    .font(.system(size: 10, weight: .bold))
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.mini)
+                }
+                .padding(8)
+                .background(Color.blue.opacity(0.12))
+                .cornerRadius(8)
+            }
+            
             // Cards Container: Dynamically expands to content; only scrolls if screen height limit is reached
             ScrollView(.vertical, showsIndicators: measuredCardsHeight > maxAllowedCardsHeight) {
                 VStack(spacing: 10) {
@@ -159,8 +183,11 @@ public struct PopoverView: View {
         var items: [String] = []
         let gemini = appState.overallUsage.gemini
         if !gemini.isConnected {
-            items.append("Google AI Studio 무료 API 키 연동 필요")
+            items.append("Antigravity CLI 또는 AI Studio API 키 필요")
         } else {
+            if let weekly = gemini.weeklyRemainingPercent {
+                items.append("주간 잔여 한도: \(Int(weekly))% 남음")
+            }
             if let remTokens = gemini.remainingTokens, let limTokens = gemini.limitTokens {
                 items.append("잔여 토큰: \(remTokens.formatted()) / \(limTokens.formatted()) TPM")
             }
