@@ -153,10 +153,14 @@ public struct PopoverView: View {
     private var claudeDetails: [String] {
         var items: [String] = []
         let claude = appState.overallUsage.claude
-        if claude.planName.contains("Max") {
+        if !claude.isConnected {
+            items.append("로그인 또는 설정(⚙️)에서 API 키 연동")
+        } else if claude.planName.contains("Max") {
             items.append("Claude Max 플랜 (우선 한도)")
         } else if claude.planName.contains("Pro") {
             items.append("Claude Pro 5시간 롤링 리셋")
+        } else if claude.planName.contains("API") {
+            items.append("Anthropic API 키 연동")
         }
         return items
     }

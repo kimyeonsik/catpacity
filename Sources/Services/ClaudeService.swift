@@ -17,7 +17,130 @@ public class ClaudeService {
         if !key.isEmpty {
             fetchWithApiKey(key: key, completion: completion)
         } else {
-            fetchFromLocalClaudeConfig(completion: completion)
+            checkClaudeCliAuth(completion: completion)
+        }
+    }
+    
+    private func findClaudeBinary() -> String? {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let candidates = [
+            "\(home)/.local/bin/claude",
+            "/opt/homebrew/bin/claude",
+            "/usr/local/bin/claude",
+            "/usr/bin/claude"
+        ]
+        for path in candidates {
+            if FileManager.default.fileExists(atPath: path) {
+                return path
+            }
+        }
+        
+        if let pathEnv = ProcessInfo.processInfo.environment["PATH"] {
+            for dir in pathEnv.components(separatedBy: ":") {
+                let candidate = (dir as NSString).appendingPathComponent("claude")
+                if FileManager.default.fileExists(atPath: candidate) {
+                    return candidate
+                }
+            }
+        }
+        return nil
+    }
+    
+    private func checkClaudeCliAuth(completion: @escaping (ClaudeUsage) -> Void) {
+        guard let binary = findClaudeBinary() else {
+            DispatchQueue.main.async {
+                completion(ClaudeUsage(
+                    planName: "미연동",
+                    usedPercent: 0.0,
+                    resetsAt: nil,
+                    lastUpdated: Date(),
+                    isConnected: false,
+                    errorMessage: "Claude 미연동 (CLI 미설치 또는 API 키 필요)"
+                ))
+            }
+            return
+        }
+        
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: binary)
+            process.arguments = ["auth", "status", "--json"]
+            
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = Pipe()
+            
+            var didComplete = false
+            
+            let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
+            timer.schedule(deadline: .now() + 3.0)
+            timer.setEventHandler {
+                if !didComplete {
+                    didComplete = true
+                    process.terminate()
+                    DispatchQueue.main.async {
+                        completion(ClaudeUsage(
+                            planName: "미연동",
+                            usedPercent: 0.0,
+                            resetsAt: nil,
+                            lastUpdated: Date(),
+                            isConnected: false,
+                            errorMessage: "Claude 인증 확인 시간 초과"
+                        ))
+                    }
+                }
+            }
+            timer.resume()
+            
+            do {
+                try process.run()
+                process.waitUntilExit()
+                
+                if didComplete { return }
+                didComplete = true
+                timer.cancel()
+                
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                var isLoggedIn = false
+                
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let loggedIn = json["loggedIn"] as? Bool {
+                    isLoggedIn = loggedIn
+                }
+                
+                if !isLoggedIn {
+                    DispatchQueue.main.async {
+                        completion(ClaudeUsage(
+                            planName: "구독 없음",
+                            usedPercent: 0.0,
+                            resetsAt: nil,
+                            lastUpdated: Date(),
+                            isConnected: false,
+                            errorMessage: "Claude 미연동 (로그아웃됨 또는 구독 없음)"
+                        ))
+                    }
+                    return
+                }
+                
+                // Active login confirmed, inspect ~/.claude.json for plan details
+                self.fetchFromLocalClaudeConfig(completion: completion)
+            } catch {
+                if didComplete { return }
+                didComplete = true
+                timer.cancel()
+                DispatchQueue.main.async {
+                    completion(ClaudeUsage(
+                        planName: "미연동",
+                        usedPercent: 0.0,
+                        resetsAt: nil,
+                        lastUpdated: Date(),
+                        isConnected: false,
+                        errorMessage: "Claude 인증 확인 오류: \(error.localizedDescription)"
+                    ))
+                }
+            }
         }
     }
     
@@ -25,18 +148,22 @@ public class ClaudeService {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let claudeJsonPath = home.appendingPathComponent(".claude.json").path
         
-        var planName = "Claude Pro"
-        var isConnected = true
+        var planName = "Claude Free"
         
         if let data = FileManager.default.contents(atPath: claudeJsonPath),
            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             if let oauth = json["oauthAccount"] as? [String: Any] {
-                if let tier = oauth["rateLimitTier"] as? String, tier.contains("max") {
+                let orgType = (oauth["organizationType"] as? String ?? "").lowercased()
+                let rateTier = (oauth["organizationRateLimitTier"] as? String ?? "").lowercased()
+                let billing = (oauth["billingType"] as? String ?? "").lowercased()
+                
+                if orgType.contains("max") || rateTier.contains("max") {
                     planName = "Claude Max"
-                } else if let billing = oauth["billingType"] as? String, billing.contains("subscription") {
+                } else if billing.contains("subscription") || orgType.contains("pro") {
                     planName = "Claude Pro"
+                } else {
+                    planName = "Claude Free"
                 }
-                isConnected = true
             }
         }
         
@@ -48,7 +175,7 @@ public class ClaudeService {
                 usedPercent: 0.0, // 100% capacity available
                 resetsAt: resetDate,
                 lastUpdated: Date(),
-                isConnected: isConnected,
+                isConnected: true,
                 errorMessage: nil
             ))
         }
@@ -56,7 +183,7 @@ public class ClaudeService {
     
     private func fetchWithApiKey(key: String, completion: @escaping (ClaudeUsage) -> Void) {
         guard let url = URL(string: "https://api.anthropic.com/v1/models") else {
-            fetchFromLocalClaudeConfig(completion: completion)
+            checkClaudeCliAuth(completion: completion)
             return
         }
         
@@ -94,7 +221,7 @@ public class ClaudeService {
                 }
             }
             
-            self.fetchFromLocalClaudeConfig(completion: completion)
+            self.checkClaudeCliAuth(completion: completion)
         }.resume()
     }
     

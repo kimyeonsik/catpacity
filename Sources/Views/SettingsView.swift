@@ -106,7 +106,7 @@ public struct SettingsView: View {
                     Text("Claude API 키 (선택사항 - Anthropic API)")
                         .font(.system(size: 10.5))
                         .foregroundColor(.secondary)
-                    SecureField("미입력 시 로컬 Claude Code / Pro 플랜 자동 연동", text: $claudeApiKey)
+                    SecureField("미입력 시 로컬 Claude Code 로그인 계정 자동 감지", text: $claudeApiKey)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 11))
                         .onChange(of: claudeApiKey) { _ in appState?.refreshClaude() }
