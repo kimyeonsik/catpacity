@@ -4,25 +4,20 @@ public struct SettingsView: View {
     @Environment(\.presentationMode) var presentationMode
     public var appState: AppState? = nil
     
+    // Menu Bar Display Customization
+    @AppStorage("catpacity_show_codex") private var showCodex: Bool = true
+    @AppStorage("catpacity_show_gemini") private var showGemini: Bool = true
+    @AppStorage("catpacity_show_claude") private var showClaude: Bool = true
+    @AppStorage("catpacity_show_percent") private var showPercent: Bool = true
+    @AppStorage("catpacity_show_reset_time") private var showResetTime: Bool = true
+    
+    // API Keys
     @AppStorage("catpacity_gemini_api_key") private var geminiApiKey: String = ""
-    @AppStorage("catpacity_gemini_plan_type") private var geminiPlanType: String = "Google AI Pro"
-    @AppStorage("catpacity_gemini_manual_used_percent") private var geminiManualUsed: Double = 35.0
+    @AppStorage("catpacity_claude_api_key") private var claudeApiKey: String = ""
+    
+    // General
     @AppStorage("catpacity_refresh_interval") private var refreshInterval: Int = 300 // 5 mins
-    @AppStorage("catpacity_menubar_mode") private var menuBarMode: String = "cat_twoline"
     @AppStorage("catpacity_notify_on_high_usage") private var notifyHighUsage: Bool = true
-    
-    @State private var selectedPlanOption: String = "Google AI Pro (5 TB)"
-    @State private var customPlanText: String = ""
-    
-    let planOptions = [
-        "Google AI Pro (5 TB)",
-        "Google AI Plus (400 GB)",
-        "Google AI Ultra (20 TB)",
-        "Google One AI 프리미엄 (2 TB)",
-        "Google AI Studio (API 키 연동)",
-        "Google Workspace Gemini",
-        "직접 입력..."
-    ]
     
     let refreshOptions = [
         (60, "1분마다"),
@@ -31,21 +26,13 @@ public struct SettingsView: View {
         (1800, "30분마다")
     ]
     
-    let menuBarModes = [
-        ("cat_twoline", "고양이 + 2줄 (Codex & Gemini 잔여량 / 리셋)"),
-        ("cat_only", "고양이 아이콘만"),
-        ("cat_percent", "고양이 + 최소 잔여량 (%)"),
-        ("cat_countdown", "고양이 + 리셋 남은 시간")
-    ]
-    
     public var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("설정 ⚙️")
                     .font(.system(size: 15, weight: .bold))
                 Spacer()
                 Button("완료") {
-                    appState?.refreshGemini()
                     appState?.updateMenuBar()
                     presentationMode.wrappedValue.dismiss()
                 }
@@ -54,93 +41,86 @@ public struct SettingsView: View {
             
             Divider()
             
-            // Section 1: Gemini Setup
+            // Section 1: Menu Bar Display Settings (Checkboxes)
             VStack(alignment: .leading, spacing: 8) {
-                Text("Gemini 요금제 설정")
+                Text("상단 메뉴바 표시 항목 (최대 3줄)")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.accentColor)
                 
-                Picker("플랜 선택", selection: $selectedPlanOption) {
-                    ForEach(planOptions, id: \.self) { opt in
-                        Text(opt).tag(opt)
-                    }
-                }
-                .pickerStyle(.menu)
-                .onChange(of: selectedPlanOption) { newVal in
-                    if newVal == "직접 입력..." {
-                        if customPlanText.isEmpty {
-                            customPlanText = "Google AI Pro"
-                        }
-                        geminiPlanType = customPlanText
-                    } else {
-                        geminiPlanType = newVal
-                    }
-                    appState?.refreshGemini()
-                }
-                
-                if selectedPlanOption == "직접 입력..." {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("플랜 이름 직접 입력:")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-                        TextField("예: Google AI Pro, Google One AI 등", text: $customPlanText)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(size: 11))
-                            .onChange(of: customPlanText) { newVal in
-                                geminiPlanType = newVal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Google AI Pro" : newVal
-                                appState?.refreshGemini()
-                            }
-                    }
-                }
-                
-                Text("💡 공식 Google AI 요금제: Pro (5 TB), Plus (400 GB), Ultra (20 TB) 중 사용 중인 플랜을 선택하세요.")
-                    .font(.system(size: 10))
+                Text("표시할 AI 서비스를 체크하세요 (체크한 개수에 따라 1~3줄로 자동 표시):")
+                    .font(.system(size: 10.5))
                     .foregroundColor(.secondary)
-                    .lineLimit(2)
                 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Gemini API 키 (선택사항 - AI Studio 사용자)")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                    SecureField("AI Studio API Key 입력 (미입력 시 플랜 기본값 사용)", text: $geminiApiKey)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 11))
-                        .onChange(of: geminiApiKey) { _ in
-                            appState?.refreshGemini()
-                        }
+                HStack(spacing: 16) {
+                    Toggle("OpenAI Codex", isOn: $showCodex)
+                        .font(.system(size: 11.5, weight: .medium))
+                        .onChange(of: showCodex) { _ in appState?.updateMenuBar() }
+                    
+                    Toggle("Google Gemini", isOn: $showGemini)
+                        .font(.system(size: 11.5, weight: .medium))
+                        .onChange(of: showGemini) { _ in appState?.updateMenuBar() }
+                    
+                    Toggle("Anthropic Claude", isOn: $showClaude)
+                        .font(.system(size: 11.5, weight: .medium))
+                        .onChange(of: showClaude) { _ in appState?.updateMenuBar() }
                 }
+                .padding(.vertical, 2)
                 
-                if geminiApiKey.isEmpty {
-                    HStack(spacing: 5) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 6, height: 6)
-                        Text("Google AI Pro 요금제 연동 중 (3시간 롤링 리셋 자동 동기화)")
-                            .font(.system(size: 10.5))
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.top, 2)
+                Divider().opacity(0.4)
+                
+                Text("텍스트 세부 표시 옵션:")
+                    .font(.system(size: 10.5))
+                    .foregroundColor(.secondary)
+                
+                HStack(spacing: 20) {
+                    Toggle("남은 퍼센트 (%) 표시", isOn: $showPercent)
+                        .font(.system(size: 11.5))
+                        .onChange(of: showPercent) { _ in appState?.updateMenuBar() }
+                    
+                    Toggle("리셋 남은 시간 표시", isOn: $showResetTime)
+                        .font(.system(size: 11.5))
+                        .onChange(of: showResetTime) { _ in appState?.updateMenuBar() }
                 }
             }
             .padding(10)
             .background(Color.primary.opacity(0.03))
             .cornerRadius(8)
             
-            // Section 2: General & Menu Bar
+            // Section 2: Optional API Keys
             VStack(alignment: .leading, spacing: 8) {
-                Text("상단 메뉴바 및 알림")
+                Text("서비스 연동 설정 (선택사항)")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.accentColor)
                 
-                Picker("상단 표시 형식", selection: $menuBarMode) {
-                    ForEach(menuBarModes, id: \.0) { item in
-                        Text(item.1).tag(item.0)
-                    }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Gemini API 키 (선택사항 - AI Studio)")
+                        .font(.system(size: 10.5))
+                        .foregroundColor(.secondary)
+                    SecureField("미입력 시 \"Gemini\" 기본 롤링 리셋 자동 적용", text: $geminiApiKey)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 11))
+                        .onChange(of: geminiApiKey) { _ in appState?.refreshGemini() }
                 }
-                .pickerStyle(.menu)
-                .onChange(of: menuBarMode) { _ in
-                    appState?.updateMenuBar()
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Claude API 키 (선택사항 - Anthropic API)")
+                        .font(.system(size: 10.5))
+                        .foregroundColor(.secondary)
+                    SecureField("미입력 시 로컬 Claude Code / Pro 플랜 자동 연동", text: $claudeApiKey)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 11))
+                        .onChange(of: claudeApiKey) { _ in appState?.refreshClaude() }
                 }
+            }
+            .padding(10)
+            .background(Color.primary.opacity(0.03))
+            .cornerRadius(8)
+            
+            // Section 3: General Settings
+            VStack(alignment: .leading, spacing: 8) {
+                Text("일반 및 알림")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.accentColor)
                 
                 Picker("자동 새로고침 주기", selection: $refreshInterval) {
                     ForEach(refreshOptions, id: \.0) { item in
@@ -162,31 +142,19 @@ public struct SettingsView: View {
             Spacer()
             
             HStack {
-                Text("Catpacity v1.0 • Cat + Capacity")
+                Text("Catpacity v1.1 • Codex + Gemini + Claude")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
                 Spacer()
-                Button("Codex 즉시 재연결") {
-                    CodexService.shared.fetchUsage { _ in }
+                Button("지금 전체 새로고침") {
+                    appState?.refreshAll()
                 }
                 .font(.system(size: 11))
             }
         }
         .padding(16)
-        .frame(width: 360, height: 470)
-        .onAppear {
-            if planOptions.dropLast().contains(geminiPlanType) {
-                selectedPlanOption = geminiPlanType
-            } else if geminiPlanType.contains("Google AI Pro") {
-                selectedPlanOption = "Google AI Pro (5 TB)"
-                geminiPlanType = "Google AI Pro (5 TB)"
-            } else {
-                selectedPlanOption = "직접 입력..."
-                customPlanText = geminiPlanType
-            }
-        }
+        .frame(width: 400, height: 490)
         .onDisappear {
-            appState?.refreshGemini()
             appState?.updateMenuBar()
         }
     }

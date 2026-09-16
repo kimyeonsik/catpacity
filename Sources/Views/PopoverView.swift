@@ -51,10 +51,28 @@ public struct PopoverView: View {
                             showingSettings = true
                         }
                     )
+                    
+                    // Claude Card
+                    ProviderCardView(
+                        iconName: "brain.head.profile",
+                        providerTitle: "Anthropic Claude",
+                        planName: appState.overallUsage.claude.planName,
+                        usedPercent: appState.overallUsage.claude.usedPercent,
+                        resetsAt: appState.overallUsage.claude.resetsAt,
+                        isConnected: appState.overallUsage.claude.isConnected,
+                        errorMessage: appState.overallUsage.claude.errorMessage,
+                        extraDetails: claudeDetails,
+                        onRefresh: {
+                            appState.refreshClaude()
+                        },
+                        onConfigure: {
+                            showingSettings = true
+                        }
+                    )
                 }
                 .padding(.horizontal, 2)
             }
-            .frame(maxHeight: 280)
+            .frame(maxHeight: 350)
             
             Divider()
             
@@ -128,6 +146,17 @@ public struct PopoverView: View {
         }
         if let remReq = gemini.usedRequests, let limReq = gemini.limitRequests {
             items.append("사용 요청: \(remReq) / \(limReq) RPM")
+        }
+        return items
+    }
+    
+    private var claudeDetails: [String] {
+        var items: [String] = []
+        let claude = appState.overallUsage.claude
+        if claude.planName.contains("Max") {
+            items.append("Claude Max 플랜 (우선 한도)")
+        } else if claude.planName.contains("Pro") {
+            items.append("Claude Pro 5시간 롤링 리셋")
         }
         return items
     }

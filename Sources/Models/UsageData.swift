@@ -65,7 +65,7 @@ public struct GeminiUsage: Codable {
     
     public static var initial: GeminiUsage {
         GeminiUsage(
-            planName: UserDefaults.standard.string(forKey: "catpacity_gemini_plan_type") ?? "Google AI Pro (5 TB)",
+            planName: UserDefaults.standard.string(forKey: "catpacity_gemini_plan_type") ?? "Gemini",
             usedPercent: 0,
             usedRequests: nil,
             limitRequests: nil,
@@ -79,19 +79,41 @@ public struct GeminiUsage: Codable {
     }
 }
 
+public struct ClaudeUsage: Codable {
+    public var planName: String
+    public var usedPercent: Double
+    public var resetsAt: Date?
+    public var lastUpdated: Date
+    public var isConnected: Bool
+    public var errorMessage: String?
+    
+    public var remainingPercent: Double {
+        return max(0.0, 100.0 - usedPercent)
+    }
+    
+    public static var initial: ClaudeUsage {
+        ClaudeUsage(
+            planName: "Claude",
+            usedPercent: 0,
+            resetsAt: nil,
+            lastUpdated: Date(),
+            isConnected: false,
+            errorMessage: nil
+        )
+    }
+}
+
 public struct OverallUsage {
     public var codex: CodexUsage
     public var gemini: GeminiUsage
+    public var claude: ClaudeUsage
     
     public var maxUsedPercent: Double {
-        if codex.isConnected && gemini.isConnected {
-            return max(codex.usedPercent, gemini.usedPercent)
-        } else if codex.isConnected {
-            return codex.usedPercent
-        } else if gemini.isConnected {
-            return gemini.usedPercent
-        }
-        return 0.0
+        var values: [Double] = []
+        if codex.isConnected { values.append(codex.usedPercent) }
+        if gemini.isConnected { values.append(gemini.usedPercent) }
+        if claude.isConnected { values.append(claude.usedPercent) }
+        return values.max() ?? 0.0
     }
     
     public var minRemainingPercent: Double {

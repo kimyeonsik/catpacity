@@ -1,8 +1,8 @@
 # 🐾 Catpacity (Cat + Capacity)
 
-> **"토큰 잔여량에 따라 점점 축~~ 늘어지는 고양이와 함께하는 Gemini & Codex 요금제 잔여량 모니터링 Mac 앱"**
+> **"토큰 잔여량에 따라 점점 축~~ 늘어지는 고양이와 함께하는 Codex, Gemini, Claude 요금제 잔여량 모니터링 Mac 앱"**
 
-macOS 메뉴바(상단 트레이)에 상주하며, **OpenAI Codex** 및 **Google Gemini**의 실시간 잔여 용량, 잔여량 비율(%), 리셋까지 남은 시간을 귀여운 고양이의 피로도 상태로 직관적으로 보여주는 초경량 네이티브 맥 앱입니다.
+macOS 메뉴바(상단 트레이)에 상주하며, **OpenAI Codex**, **Google Gemini**, **Anthropic Claude**의 실시간 잔여 용량, 잔여량 비율(%), 리셋까지 남은 시간을 귀여운 고양이의 피로도 상태로 직관적으로 보여주는 초경량 네이티브 맥 앱입니다.
 
 ---
 
@@ -46,21 +46,26 @@ curl -fsSL https://raw.githubusercontent.com/kimyeonsik/catpacity/main/install-r
 
 ### 3. ⚡️ OpenAI Codex 실시간 자동 연동
 * 로컬 Codex 데몬(`codex app-server`)의 `account/rateLimits/read` RPC와 직접 통신
-* **실시간 사용량 백분율 (%)**: 예: 67% 소진 / 33% 남음
-* **리셋 타이머 카운트다운**: 예: `3일 4시간 남음 (9월 18일 오후 8:57)`
+* **실시간 잔여량 백분율 (%)**: 예: 33% 남음
+* **리셋 타이머 카운트다운**: 예: `3일 4시간 남음`
 * **잔여 크레딧 실시간 확인**: 예: `1,000 Credits 남음`
-* **서브 모델 상태 표기**: Spark 등 개별 모델 사용량
 
-### 3. ✨ Google Gemini 요금제 지원
-* **Gemini Advanced (Google One 2TB)** 플랜 지원 및 롤링 리셋 윈도우 추적
-* **Google AI Studio (Gemini API Key)** 설정 지원 (TPM/RPM 잔여 헤더 자동 동기화)
-* 다음 리셋 시점까지의 정밀 카운트다운 제공
+### 4. ✨ Google Gemini 요금제 지원
+* 복잡한 요금제 구분 없이 **"Gemini"**로 깔끔하게 일괄 표시
+* 롤링 리셋 윈도우(3시간 주기) 자동 카운트다운 및 Google AI Studio API 키 연동 지원
 
-### 4. 🧪 인터랙티브 고양이 시뮬레이터
-* 팝오버 하단의 눈 모양(👁) 버튼을 누르면 테스트 슬라이더가 나타납니다.
-* 슬라이더를 0%부터 100%까지 자유롭게 움직여 5가지 고양이 변신 애니메이션과 귀여운 대사를 미리 볼 수 있습니다!
+### 5. 🧠 Anthropic Claude 지원 추가
+* 로컬 Claude Code CLI 및 `~/.claude.json` (Claude Pro / Claude Max) 자동 감지
+* 5시간 롤링 리셋 주기 자동 추적 및 Anthropic API 키 연동 지원
 
-### 5. 🪶 초경량 순수 네이티브 Mac 앱
+### 6. 🎛️ 상단 메뉴바 맞춤 설정 (최대 3줄)
+* **표시 서비스 선택**: [x] Codex, [x] Gemini, [x] Claude 중 원하는 서비스만 체크
+* **선택 개수에 따라 1줄 ~ 3줄 자동 정렬**: 1개 선택 시 1줄, 2개 선택 시 2줄, 3개 선택 시 3줄로 Retina 해상도 렌더링
+* **세부 표시 옵션**:
+  * [x] 남은 퍼센트 (%) 표시
+  * [x] 리셋 남은 시간 표시
+
+### 7. 🪶 초경량 순수 네이티브 Mac 앱
 * Electron이나 무거운 웹뷰를 일절 쓰지 않고 **SwiftUI + AppKit**으로 빌드되었습니다.
 * 앱 용량 단 **0.7MB**, 메모리 점유율 **20MB 미만**으로 배터리나 시스템 리소스를 전혀 소모하지 않습니다.
 * `LSUIElement` 설정으로 Dock을 어지럽히지 않고 메뉴바에만 깔끔하게 상주합니다.
@@ -96,13 +101,9 @@ cd /Volumes/T7/Projects/my-ai/Catpacity
 
 ## ⚙️ 설정 옵션
 팝오버 오른쪽 아래의 톱니바퀴(⚙️) 아이콘을 눌러 설정할 수 있습니다:
-* **상단 표시 형식**:
-  * **고양이 + 2줄 상세 (Codex & Gemini 잔여량 / 리셋 시간)** (추천!)
-  * 고양이 아이콘만 표시 (미니멀)
-  * 고양이 + 최소 잔여량 (%) 표시
-  * 고양이 + 리셋 남은 시간 표시
+* **상단 메뉴바 표시 항목 (최대 3줄)**:
+  * 표시할 AI 서비스 선택: Codex, Gemini, Claude (체크박스)
+  * 텍스트 세부 표시 옵션: 남은 퍼센트 (%) 표시, 리셋 남은 시간 표시 (체크박스)
+* **서비스 연동 (선택사항)**: Gemini API 키, Claude API 키
 * **자동 새로고침 주기**: 1분 / 5분(권장) / 15분 / 30분
 * **잔여량 경고 알림**: 잔여량이 20% 및 5%로 떨어질 때 고양이가 지쳐간다는 macOS 시스템 푸시 알림 발송
-* **Google AI 공식 요금제 설정**:
-  * `Google AI Pro (5 TB)` / `Google AI Plus (400 GB)` / `Google AI Ultra (20 TB)`
-  * `Google One AI 프리미엄 (2 TB)` / `Google AI Studio API` / `직접 입력(커스텀)` 지원
