@@ -9,6 +9,11 @@ if [ ! -d "$APP_PATH" ]; then
     "$SCRIPT_DIR/build.sh"
 fi
 
+echo "🛑 기존 실행 중인 Catpacity 프로세스 정리 중..."
+killall -9 Catpacity 2>/dev/null || true
+pkill -9 -f "Catpacity" 2>/dev/null || true
+sleep 1
+
 echo "🚀 /Applications 폴더에 Catpacity.app을 복사합니다..."
 rm -rf "/Applications/Catpacity.app"
 cp -R "$APP_PATH" "/Applications/Catpacity.app"
