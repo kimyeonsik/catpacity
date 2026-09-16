@@ -62,14 +62,7 @@ public class GeminiService {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: binary)
             process.arguments = ["-p", "/quota"]
-            
-            var env = ProcessInfo.processInfo.environment
-            let home = FileManager.default.homeDirectoryForCurrentUser.path
-            env["HOME"] = home
-            env["USER"] = NSUserName()
-            env["PATH"] = "\(home)/.local/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-            env["DEVELOPER_DIR"] = "/Library/Developer/CommandLineTools"
-            process.environment = env
+            process.environment = EnvironmentHelper.makeProcessEnvironment()
             process.standardInput = FileHandle.nullDevice
             
             let pipe = Pipe()
@@ -78,7 +71,7 @@ public class GeminiService {
             
             var didComplete = false
             let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
-            timer.schedule(deadline: .now() + 10.0)
+            timer.schedule(deadline: .now() + 12.0)
             timer.setEventHandler {
                 if !didComplete {
                     didComplete = true
@@ -88,16 +81,26 @@ public class GeminiService {
             }
             timer.resume()
             
+            var outputData = Data()
+            pipe.fileHandleForReading.readabilityHandler = { handle in
+                let chunk = handle.availableData
+                if !chunk.isEmpty {
+                    outputData.append(chunk)
+                }
+            }
+            
             do {
                 try process.run()
                 process.waitUntilExit()
+                pipe.fileHandleForReading.readabilityHandler = nil
+                let remaining = pipe.fileHandleForReading.readDataToEndOfFile()
+                outputData.append(remaining)
                 
                 if didComplete { return }
                 didComplete = true
                 timer.cancel()
                 
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                guard let output = String(data: data, encoding: .utf8), !output.isEmpty else {
+                guard let output = String(data: outputData, encoding: .utf8), !output.isEmpty else {
                     self.checkLocalGoogleCli(completion: completion)
                     return
                 }

@@ -5,6 +5,22 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ---
 
+## [1.1.1] - 2026-09-16
+
+### 🐛 Bug Fixes & Improvements
+- **Antigravity CLI 실시간 쿼터 연동**:
+  - Google Gemini 쿼터를 Antigravity CLI(`agy -p /quota`)와 직접 연동하여 실제 5시간 한도 잔여량 및 주간 한도를 실시간 동기화.
+- **CLI 환경 변수(PATH, HOME) 주입 (EnvironmentHelper)**:
+  - macOS GUI LaunchServices 환경에서 `node`, `codex`, `agy`, `claude` 바이너리를 안정적으로 실행할 수 있도록 환경 변수 자동 보정.
+  - Codex 통신 시 발생하던 '요청 시간 초과 (Timeout)' 문제 해결.
+- **Claude 구독 해지 및 비로그인 상태 정확 반영**:
+  - `~/.claude.json`의 과거 Max 플랜 캐시를 맹목적으로 신뢰하지 않고 `claude auth status`로 활성 로그인 여부를 실시간 교차 검증.
+  - 구독 해지 시 `미연동 (구독 없음 / 로그아웃됨)`으로 정확히 표시.
+- **GitHub 릴리즈 기반 무서버 자동 업데이트 알림**:
+  - 최신 버전 발견 시 macOS 시스템 알림 및 앱 내 배너 표시.
+
+---
+
 ## [1.1.0] - 2026-09-16
 
 ### 🚀 Major Highlights

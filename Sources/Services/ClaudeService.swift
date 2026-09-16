@@ -67,13 +67,7 @@ public class ClaudeService {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: binary)
             process.arguments = ["auth", "status", "--json"]
-            
-            var env = ProcessInfo.processInfo.environment
-            let home = FileManager.default.homeDirectoryForCurrentUser.path
-            env["HOME"] = home
-            env["USER"] = NSUserName()
-            env["PATH"] = "\(home)/.local/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-            process.environment = env
+            process.environment = EnvironmentHelper.makeProcessEnvironment()
             process.standardInput = FileHandle.nullDevice
             
             let pipe = Pipe()
@@ -83,7 +77,7 @@ public class ClaudeService {
             var didComplete = false
             
             let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
-            timer.schedule(deadline: .now() + 4.0)
+            timer.schedule(deadline: .now() + 6.0)
             timer.setEventHandler {
                 if !didComplete {
                     didComplete = true
@@ -102,18 +96,27 @@ public class ClaudeService {
             }
             timer.resume()
             
+            var outputData = Data()
+            pipe.fileHandleForReading.readabilityHandler = { handle in
+                let chunk = handle.availableData
+                if !chunk.isEmpty {
+                    outputData.append(chunk)
+                }
+            }
+            
             do {
                 try process.run()
                 process.waitUntilExit()
+                pipe.fileHandleForReading.readabilityHandler = nil
+                let remaining = pipe.fileHandleForReading.readDataToEndOfFile()
+                outputData.append(remaining)
                 
                 if didComplete { return }
                 didComplete = true
                 timer.cancel()
                 
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
                 var isLoggedIn = false
-                
-                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                if let json = try? JSONSerialization.jsonObject(with: outputData) as? [String: Any],
                    let loggedIn = json["loggedIn"] as? Bool {
                     isLoggedIn = loggedIn
                 }

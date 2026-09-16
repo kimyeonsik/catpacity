@@ -7,7 +7,7 @@ public class UpdateCheckerService {
     private let repo = "kimyeonsik/catpacity"
     
     public var currentVersion: String {
-        return Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.1.0"
+        return Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.1.1"
     }
     
     public func checkForUpdates(manual: Bool = false, completion: @escaping (_ updateAvailable: Bool, _ latestTag: String, _ releaseUrl: String, _ errorMsg: String?) -> Void) {

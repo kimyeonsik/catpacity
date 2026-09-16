@@ -25,6 +25,7 @@ public class CodexService {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: binary)
             process.arguments = ["app-server"]
+            process.environment = EnvironmentHelper.makeProcessEnvironment()
             
             let inPipe = Pipe()
             let outPipe = Pipe()
@@ -36,7 +37,7 @@ public class CodexService {
             var didComplete = false
             
             let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
-            timer.schedule(deadline: .now() + 5.0)
+            timer.schedule(deadline: .now() + 8.0)
             timer.setEventHandler {
                 if !didComplete {
                     didComplete = true
