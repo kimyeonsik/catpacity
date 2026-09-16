@@ -10,7 +10,6 @@ public struct ProviderCardView: View {
     public let errorMessage: String?
     public let extraDetails: [String]
     public let onRefresh: () -> Void
-    public var onConfigure: (() -> Void)? = nil
     
     public var remainingPercent: Double {
         return max(0.0, 100.0 - usedPercent)
@@ -47,16 +46,6 @@ public struct ProviderCardView: View {
                     Text(planName)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.secondary)
-                    
-                    if let configure = onConfigure {
-                        Button(action: configure) {
-                            Image(systemName: "gearshape")
-                                .font(.system(size: 10))
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help("설정")
-                    }
                 }
             }
             

@@ -24,13 +24,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Setup Popover
         let popover = NSPopover()
-        popover.contentSize = NSSize(width: 330, height: 480)
         popover.behavior = .transient
         popover.animates = true
-        popover.contentViewController = NSHostingController(
-            rootView: PopoverView(appState: appState)
-        )
         self.popover = popover
+        
+        // Listen for dynamic popover content resize
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("CatpacityPopoverResize"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self = self, self.popover.isShown,
+                  let host = self.popover.contentViewController else { return }
+            let fitting = host.view.fittingSize
+            if fitting.width > 0 && fitting.height > 0 {
+                self.popover.contentSize = fitting
+            }
+        }
         
         // Setup Status Item in Menu Bar
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -88,9 +98,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         
         // Re-host view to ensure fresh data
-        popover.contentViewController = NSHostingController(
+        let hosting = NSHostingController(
             rootView: PopoverView(appState: appState)
         )
+        popover.contentViewController = hosting
+        
+        let fitting = hosting.view.fittingSize
+        if fitting.width > 0 && fitting.height > 0 {
+            popover.contentSize = fitting
+        }
         
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()

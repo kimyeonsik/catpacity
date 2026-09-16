@@ -1,8 +1,22 @@
 import SwiftUI
 
+private struct CardsContentHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 public struct PopoverView: View {
     @ObservedObject var appState: AppState
     @State private var showingSettings = false
+    @State private var measuredCardsHeight: CGFloat = 0
+    
+    private var maxAllowedCardsHeight: CGFloat {
+        let screenHeight = NSScreen.main?.visibleFrame.height ?? 850
+        // Leave room for cat header (~120pt), footer (~50pt), margins (~60pt)
+        return max(350, screenHeight - 240)
+    }
     
     public var body: some View {
         let activeRemaining = appState.overallUsage.minRemainingPercent
@@ -16,8 +30,8 @@ public struct PopoverView: View {
                 animFrame: appState.currentAnimFrame
             )
             
-            // Cards Container
-            ScrollView(.vertical, showsIndicators: false) {
+            // Cards Container: Dynamically expands to content; only scrolls if screen height limit is reached
+            ScrollView(.vertical, showsIndicators: measuredCardsHeight > maxAllowedCardsHeight) {
                 VStack(spacing: 10) {
                     // Codex Card
                     ProviderCardView(
@@ -46,9 +60,6 @@ public struct PopoverView: View {
                         extraDetails: geminiDetails,
                         onRefresh: {
                             appState.refreshGemini()
-                        },
-                        onConfigure: {
-                            showingSettings = true
                         }
                     )
                     
@@ -64,19 +75,25 @@ public struct PopoverView: View {
                         extraDetails: claudeDetails,
                         onRefresh: {
                             appState.refreshClaude()
-                        },
-                        onConfigure: {
-                            showingSettings = true
                         }
                     )
                 }
                 .padding(.horizontal, 2)
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(key: CardsContentHeightKey.self, value: geo.size.height)
+                    }
+                )
             }
-            .frame(maxHeight: 350)
+            .frame(height: measuredCardsHeight > 0 ? min(measuredCardsHeight, maxAllowedCardsHeight) : nil)
+            .onPreferenceChange(CardsContentHeightKey.self) { newHeight in
+                measuredCardsHeight = newHeight
+                NotificationCenter.default.post(name: NSNotification.Name("CatpacityPopoverResize"), object: nil)
+            }
             
             Divider()
             
-            // Footer Controls
+            // Footer Controls (Single unified settings button)
             HStack {
                 HStack(spacing: 4) {
                     Image(systemName: "arrow.clockwise")
