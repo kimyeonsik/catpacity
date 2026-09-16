@@ -3,6 +3,12 @@ set -e
 
 echo "🐾 Catpacity (움직이는 도트 고양이) 설치를 시작합니다..."
 
+# 1. 기존 실행 중인 좀비/이전 버전 프로세스 강제 종료
+echo "🛑 기존 실행 중인 Catpacity 프로세스 정리 중..."
+killall -9 Catpacity 2>/dev/null || true
+pkill -9 -f "Catpacity" 2>/dev/null || true
+sleep 1
+
 TEMP_DIR=$(mktemp -d)
 ZIP_URL="https://github.com/kimyeonsik/catpacity/releases/download/v1.0.0/Catpacity-v1.0.1-macOS.zip"
 
@@ -16,7 +22,7 @@ echo "🛡️ macOS 보안 격리 속성(Gatekeeper) 자동 해제 중..."
 xattr -cr "$TEMP_DIR/Catpacity.app" 2>/dev/null || true
 
 echo "🚀 /Applications 폴더로 설치 중..."
-rm -rf /Applications/Catpacity.app
+rm -rf /Applications/Catpacity.app 2>/dev/null || true
 cp -R "$TEMP_DIR/Catpacity.app" /Applications/
 xattr -cr /Applications/Catpacity.app 2>/dev/null || true
 
