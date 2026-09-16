@@ -12,18 +12,18 @@ public class CodexService {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             defer { self?.isFetching = false }
             
-            let codexBinary = self?.findCodexBinary() ?? "/opt/homebrew/bin/codex"
-            guard FileManager.default.fileExists(atPath: codexBinary) else {
+            let codexBinary = self?.findCodexBinary()
+            guard let binary = codexBinary, FileManager.default.fileExists(atPath: binary) else {
                 DispatchQueue.main.async {
                     var usage = CodexUsage.initial
-                    usage.errorMessage = "Codex CLI가 설치되지 않았습니다."
+                    usage.errorMessage = "Codex 미설치: 터미널에서 'npm i -g @openai/codex' 실행"
                     completion(usage)
                 }
                 return
             }
             
             let process = Process()
-            process.executableURL = URL(fileURLWithPath: codexBinary)
+            process.executableURL = URL(fileURLWithPath: binary)
             process.arguments = ["app-server"]
             
             let inPipe = Pipe()
@@ -102,16 +102,39 @@ public class CodexService {
     }
     
     private func findCodexBinary() -> String? {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
         let candidates = [
+            "/Applications/Codex.app/Contents/Resources/codex",
             "/opt/homebrew/bin/codex",
             "/usr/local/bin/codex",
-            "\(FileManager.default.homeDirectoryForCurrentUser.path)/.codex-runtime/bin/codex"
+            "\(home)/.bun/bin/codex",
+            "\(home)/.npm-global/bin/codex",
+            "\(home)/.local/bin/codex",
+            "\(home)/.codex-runtime/bin/codex"
         ]
         for path in candidates {
             if FileManager.default.fileExists(atPath: path) {
                 return path
             }
         }
+        
+        // Dynamic search in PATH via 'which codex'
+        let whichProcess = Process()
+        whichProcess.executableURL = URL(fileURLWithPath: "/usr/bin/which")
+        whichProcess.arguments = ["codex"]
+        let pipe = Pipe()
+        whichProcess.standardOutput = pipe
+        whichProcess.standardError = Pipe()
+        do {
+            try whichProcess.run()
+            whichProcess.waitUntilExit()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !output.isEmpty, FileManager.default.fileExists(atPath: output) {
+                return output
+            }
+        } catch {}
+        
         return nil
     }
     

@@ -19,19 +19,20 @@ public class NotificationService {
         let enabled = UserDefaults.standard.bool(forKey: "catpacity_notify_on_high_usage")
         guard enabled else { return }
         
-        if usedPercent >= 95.0 && !didNotify95 {
+        let remainingPercent = max(0.0, 100.0 - usedPercent)
+        if remainingPercent <= 5.0 && !didNotify95 {
             sendNotification(
                 title: "Catpacity: 고양이가 완전히 방전되었어요! 🫠",
-                body: "사용량이 \(Int(usedPercent))%에 도달했습니다. 곧 한도에 도달하므로 리셋 시간을 확인하세요."
+                body: "잔여량이 \(Int(remainingPercent))% 남았습니다. 곧 한도에 도달하므로 리셋 시간을 확인하세요."
             )
             didNotify95 = true
-        } else if usedPercent >= 80.0 && !didNotify80 {
+        } else if remainingPercent <= 20.0 && !didNotify80 {
             sendNotification(
                 title: "Catpacity: 고양이가 축 늘어지고 있어요... 🙀",
-                body: "사용량이 \(Int(usedPercent))%를 돌파했습니다! 작업을 아껴주세요."
+                body: "잔여량이 \(Int(remainingPercent))%밖에 남지 않았습니다! 작업을 아껴주세요."
             )
             didNotify80 = true
-        } else if usedPercent < 80.0 {
+        } else if remainingPercent > 20.0 {
             // Reset notification state when quota recovers or resets
             didNotify80 = false
             didNotify95 = false

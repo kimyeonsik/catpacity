@@ -1,8 +1,8 @@
 # 🐾 Catpacity (Cat + Capacity)
 
-> **"토큰 사용량에 따라 점점 축~~ 늘어지는 고양이와 함께하는 Gemini & Codex 요금제 잔여량 모니터링 Mac 앱"**
+> **"토큰 잔여량에 따라 점점 축~~ 늘어지는 고양이와 함께하는 Gemini & Codex 요금제 잔여량 모니터링 Mac 앱"**
 
-macOS 메뉴바(상단 트레이)에 상주하며, **OpenAI Codex** 및 **Google Gemini**의 실시간 잔여 토큰, 사용량 비율(%), 리셋까지 남은 시간을 귀여운 고양이의 피로도 상태로 직관적으로 보여주는 초경량 네이티브 맥 앱입니다.
+macOS 메뉴바(상단 트레이)에 상주하며, **OpenAI Codex** 및 **Google Gemini**의 실시간 잔여 용량, 잔여량 비율(%), 리셋까지 남은 시간을 귀여운 고양이의 피로도 상태로 직관적으로 보여주는 초경량 네이티브 맥 앱입니다.
 
 ---
 
@@ -20,9 +20,9 @@ curl -fsSL https://raw.githubusercontent.com/kimyeonsik/catpacity/main/install-r
 
 다른 Mac에서 바로 다운로드하여 설치하실 수 있습니다:
 
-* 💿 **[Catpacity.dmg 다운로드 (223 KB)](https://github.com/kimyeonsik/catpacity/releases/download/v1.0.0/Catpacity.dmg)** (추천: 더블 클릭 후 드래그 앤 드롭)
-* 📦 **[Catpacity-Installer.pkg 다운로드 (173 KB)](https://github.com/kimyeonsik/catpacity/releases/download/v1.0.0/Catpacity-Installer.pkg)** (macOS 원클릭 설치 마법사)
-* 🗜️ **[Catpacity-v1.0.0-macOS.zip 다운로드 (174 KB)](https://github.com/kimyeonsik/catpacity/releases/download/v1.0.0/Catpacity-v1.0.0-macOS.zip)** (압축 파일)
+* 💿 **[Catpacity.dmg 다운로드](https://github.com/kimyeonsik/catpacity/releases/download/v1.0.0/Catpacity.dmg)** (추천: 더블 클릭 후 드래그 앤 드롭)
+* 📦 **[Catpacity-Installer.pkg 다운로드](https://github.com/kimyeonsik/catpacity/releases/download/v1.0.0/Catpacity-Installer.pkg)** (macOS 원클릭 설치 마법사)
+* 🗜️ **[Catpacity-v1.0.1-macOS.zip 다운로드](https://github.com/kimyeonsik/catpacity/releases/download/v1.0.0/Catpacity-v1.0.1-macOS.zip)** (압축 파일)
 
 > 🔗 전체 릴리즈 페이지: [GitHub Releases v1.0.0](https://github.com/kimyeonsik/catpacity/releases/tag/v1.0.0)
 
@@ -31,12 +31,12 @@ curl -fsSL https://raw.githubusercontent.com/kimyeonsik/catpacity/main/install-r
 ## ✨ 핵심 기능
 
 ### 1. 👾 움직이는 레트로 도트(Pixel Art) 고양이 아이콘
-메뉴바 상단과 팝오버 창에서 사용량에 따라 고양이가 **실시간으로 프레임 단위로 움직이는 도트(Dot) 그래픽**으로 표현됩니다:
-* **1단계 (0% ~ 20% 소진) 😺 쌩쌩 도트냥**: 꼿꼿하게 서서 귀를 쫑긋이고 꼬리를 살랑살랑 흔들며 깜빡이는 귀여운 애니메이션!
-* **2단계 (21% ~ 50% 소진) 😸 식빵 도트냥**: 앞발을 모으고 고롱고롱 숨을 쉬며 꼬리를 가볍게 까딱이는 여유로운 애니메이션.
-* **3단계 (51% ~ 75% 소진) 😿 꾸벅꾸벅 졸린냥**: 몸이 기울어지며 고개가 아래로 꾸벅... 머리 위로 작은 도트 `z`가 퐁퐁 떠오르는 피곤한 애니메이션.
-* **4단계 (76% ~ 90% 소진) 🙀 축 늘어진 멜팅냥**: 바닥에 턱을 괴고 혓바닥을 살짝 내민 채(blep) 몸이 납작하게 축~~ 늘어지는 방전 직전 애니메이션!
-* **5단계 (91% ~ 100% 소진) 🫠 완전 방전 액체냥**: 완전히 납작한 팬케이크 액체 고양이로 변신하여 도트 `z Z`를 날리며 꿀잠 자는 애니메이션.
+메뉴바 상단과 팝오버 창에서 남은 토큰 잔여량에 따라 고양이가 **실시간으로 프레임 단위로 움직이는 도트(Dot) 그래픽**으로 표현됩니다:
+* **1단계 (80% ~ 100% 잔여) 😺 쌩쌩 도트냥**: 꼿꼿하게 서서 귀를 쫑긋이고 꼬리를 살랑살랑 흔들며 깜빡이는 기운찬 애니메이션!
+* **2단계 (50% ~ 79% 잔여) 😸 식빵 도트냥**: 앞발을 모으고 고롱고롱 숨을 쉬며 꼬리를 가볍게 까딱이는 여유로운 애니메이션.
+* **3단계 (25% ~ 49% 잔여) 😿 꾸벅꾸벅 졸린냥**: 잔여량이 절반 밑으로 떨어지며 고개가 아래로 꾸벅... 머리 위로 작은 도트 `z`가 퐁퐁 떠오르는 피곤한 애니메이션.
+* **4단계 (10% ~ 24% 잔여) 🙀 축 늘어진 멜팅냥**: 잔여량이 바닥나며 바닥에 턱을 괴고 혓바닥을 살짝 내민 채(blep) 몸이 납작하게 축~~ 늘어지는 방전 직전 애니메이션!
+* **5단계 (0% ~ 9% 잔여) 🫠 완전 방전 액체냥**: 완전히 납작한 팬케이크 액체 고양이로 변신하여 도트 `z Z`를 날리며 꿀잠 자는 애니메이션.
 
 ### 2. 📦 다른 Mac 설치용 패키지 (.dmg / .pkg / .zip)
 다른 Mac(Air, Pro, Mac mini 등)으로 쉽게 옮겨 설치할 수 있도록 3가지 표준 패키지가 자동으로 생성됩니다:
@@ -98,8 +98,8 @@ cd /Volumes/T7/Projects/my-ai/Catpacity
 팝오버 오른쪽 아래의 톱니바퀴(⚙️) 아이콘을 눌러 설정할 수 있습니다:
 * **상단 표시 형식**:
   * 고양이 아이콘만 표시 (미니멀)
-  * 고양이 + 사용량 (%) 표시
+  * 고양이 + 잔여량 (%) 표시
   * 고양이 + 리셋 남은 시간 표시
 * **자동 새로고침 주기**: 1분 / 5분(권장) / 15분 / 30분
-* **사용량 경고 알림**: 사용량이 80% 및 95%에 도달 시 고양이가 지쳐간다는 macOS 시스템 푸시 알림 발송
+* **잔여량 경고 알림**: 잔여량이 20% 및 5%로 떨어질 때 고양이가 지쳐간다는 macOS 시스템 푸시 알림 발송
 * **Gemini API 키 및 요금제 설정**

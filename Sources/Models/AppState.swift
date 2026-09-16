@@ -87,7 +87,7 @@ public class AppState: ObservableObject {
         let mode = UserDefaults.standard.string(forKey: "catpacity_menubar_mode") ?? "cat_only"
         switch mode {
         case "cat_percent":
-            button.title = " \(Int(overallUsage.maxUsedPercent))%"
+            button.title = " \(Int(overallUsage.minRemainingPercent))%"
         case "cat_countdown":
             let resetsAt = overallUsage.codex.resetsAt ?? overallUsage.gemini.resetsAt
             button.title = " " + TimeFormatter.formatCountdown(until: resetsAt)

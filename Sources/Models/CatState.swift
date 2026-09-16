@@ -1,29 +1,34 @@
 import SwiftUI
 
 public enum CatStage: Int, CaseIterable, Comparable {
-    case energetic = 1  // 0% - 20% used
-    case content = 2    // 21% - 50% used
-    case tired = 3      // 51% - 75% used
-    case melting = 4    // 76% - 90% used
-    case liquid = 5     // 91% - 100% used
+    case energetic = 1  // 80% - 100% remaining (0% - 20% used)
+    case content = 2    // 50% - 79% remaining (21% - 50% used)
+    case tired = 3      // 25% - 49% remaining (51% - 75% used)
+    case melting = 4    // 10% - 24% remaining (76% - 90% used)
+    case liquid = 5     // 0% - 9% remaining (91% - 100% used)
     
     public static func < (lhs: CatStage, rhs: CatStage) -> Bool {
         return lhs.rawValue < rhs.rawValue
     }
     
-    public static func from(usedPercent: Double) -> CatStage {
-        switch usedPercent {
-        case ..<21.0:
+    public static func from(remainingPercent: Double) -> CatStage {
+        switch remainingPercent {
+        case 80.0...:
             return .energetic
-        case 21.0..<51.0:
+        case 50.0..<80.0:
             return .content
-        case 51.0..<76.0:
+        case 25.0..<50.0:
             return .tired
-        case 76.0..<91.0:
+        case 10.0..<25.0:
             return .melting
         default:
             return .liquid
         }
+    }
+    
+    public static func from(usedPercent: Double) -> CatStage {
+        let remaining = max(0.0, 100.0 - usedPercent)
+        return from(remainingPercent: remaining)
     }
     
     public var title: String {
@@ -49,15 +54,15 @@ public enum CatStage: Int, CaseIterable, Comparable {
     public var quote: String {
         switch self {
         case .energetic:
-            return "기운이 펄펄 넘쳐요! 코딩 마음껏 하세요! ⚡️"
+            return "잔여량 넉넉해요! 기운차게 코딩하세요 ⚡️"
         case .content:
-            return "안정적으로 작업 중이에요. 아직 여유 넘쳐냥 ☕️"
+            return "토큰 여유 있어요. 느긋하게 작업 중냥 ☕️"
         case .tired:
-            return "하아암... 사용량이 꽤 쌓여서 나른해져요 🥱"
+            return "잔여량이 절반 밑으로 떨어졌어요... 하아암 🥱"
         case .melting:
-            return "몸이 점점 축~~ 늘어지는 중... 버텨볼게요 💦"
+            return "토큰이 얼마 안 남았어요! 몸이 축~~ 늘어져요 💦"
         case .liquid:
-            return "토큰 완전 소진! 고양이 액체설 입증 완료... 쿨쿨 💤"
+            return "잔여량 방전! 고양이 액체설 입증... 리셋 대기 중 💤"
         }
     }
     

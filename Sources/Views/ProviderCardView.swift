@@ -12,12 +12,16 @@ public struct ProviderCardView: View {
     public let onRefresh: () -> Void
     public var onConfigure: (() -> Void)? = nil
     
+    public var remainingPercent: Double {
+        return max(0.0, 100.0 - usedPercent)
+    }
+    
     public var progressColor: Color {
-        switch usedPercent {
-        case ..<40: return .green
-        case 40..<70: return .yellow
-        case 70..<90: return .orange
-        default: return .red
+        switch remainingPercent {
+        case 60...:   return .green
+        case 30..<60: return .yellow
+        case 15..<30: return .orange
+        default:      return .red
         }
     }
     
@@ -61,22 +65,22 @@ public struct ProviderCardView: View {
                     .font(.system(size: 11))
                     .foregroundColor(.red.opacity(0.8))
             } else {
-                // Progress Bar & Percentage
+                // Progress Bar & Remaining Percentage
                 VStack(alignment: .leading, spacing: 5) {
                     HStack {
-                        Text("사용량")
-                            .font(.system(size: 11))
+                        Text("잔여량")
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text("\(String(format: "%.1f", usedPercent))%")
+                        Text("\(String(format: "%.1f", remainingPercent))% 남음")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundColor(progressColor)
-                        Text("(\(String(format: "%.0f", max(0, 100 - usedPercent)))% 남음)")
+                        Text("(사용: \(String(format: "%.0f", usedPercent))%)")
                             .font(.system(size: 10))
                             .foregroundColor(.secondary)
                     }
                     
-                    // Custom rounded progress bar
+                    // Capacity Gauge Bar (Fills according to remaining capacity)
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 4)
@@ -91,7 +95,7 @@ public struct ProviderCardView: View {
                                         endPoint: .trailing
                                     )
                                 )
-                                .frame(width: max(0, min(geo.size.width, geo.size.width * CGFloat(usedPercent / 100.0))), height: 7)
+                                .frame(width: max(0, min(geo.size.width, geo.size.width * CGFloat(remainingPercent / 100.0))), height: 7)
                         }
                     }
                     .frame(height: 7)

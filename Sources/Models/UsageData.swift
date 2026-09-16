@@ -7,6 +7,10 @@ public struct SubModelUsage: Identifiable, Codable {
     public let usedPercent: Double
     public let resetsAt: Date?
     public let windowDurationMins: Int?
+    
+    public var remainingPercent: Double {
+        return max(0.0, 100.0 - usedPercent)
+    }
 }
 
 public struct CodexUsage: Codable {
@@ -21,6 +25,10 @@ public struct CodexUsage: Codable {
     public var lastUpdated: Date
     public var isConnected: Bool
     public var errorMessage: String?
+    
+    public var remainingPercent: Double {
+        return max(0.0, 100.0 - usedPercent)
+    }
     
     public static var initial: CodexUsage {
         CodexUsage(
@@ -50,6 +58,10 @@ public struct GeminiUsage: Codable {
     public var lastUpdated: Date
     public var isConnected: Bool
     public var errorMessage: String?
+    
+    public var remainingPercent: Double {
+        return max(0.0, 100.0 - usedPercent)
+    }
     
     public static var initial: GeminiUsage {
         GeminiUsage(
@@ -82,7 +94,11 @@ public struct OverallUsage {
         return 0.0
     }
     
+    public var minRemainingPercent: Double {
+        return max(0.0, 100.0 - maxUsedPercent)
+    }
+    
     public var catStage: CatStage {
-        return CatStage.from(usedPercent: maxUsedPercent)
+        return CatStage.from(remainingPercent: minRemainingPercent)
     }
 }

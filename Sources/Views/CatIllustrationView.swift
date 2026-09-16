@@ -2,7 +2,7 @@ import SwiftUI
 
 public struct CatIllustrationView: View {
     public let stage: CatStage
-    public let usedPercent: Double
+    public let remainingPercent: Double
     public let animFrame: Int
     
     public var body: some View {
@@ -48,7 +48,7 @@ public struct CatIllustrationView: View {
                             
                             Spacer()
                             
-                            Text("\(Int(usedPercent))% 소진")
+                            Text("잔여 \(Int(remainingPercent))%")
                                 .font(.system(size: 10.5, weight: .bold))
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 3)

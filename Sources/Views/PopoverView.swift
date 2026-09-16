@@ -7,14 +7,14 @@ public struct PopoverView: View {
     @State private var previewPercent: Double = 67.0
     
     public var body: some View {
-        let activePercent = previewMode ? previewPercent : appState.overallUsage.maxUsedPercent
-        let activeStage = CatStage.from(usedPercent: activePercent)
+        let activeRemaining = previewMode ? previewPercent : appState.overallUsage.minRemainingPercent
+        let activeStage = CatStage.from(remainingPercent: activeRemaining)
         
         VStack(spacing: 12) {
             // Header: Dynamic Retro Animated Pixel Cat Graphic + Quote
             CatIllustrationView(
                 stage: activeStage,
-                usedPercent: activePercent,
+                remainingPercent: activeRemaining,
                 animFrame: appState.currentAnimFrame
             )
             
@@ -62,7 +62,7 @@ public struct PopoverView: View {
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(.purple)
                                 Spacer()
-                                Text("\(Int(previewPercent))%")
+                                Text("잔여 \(Int(previewPercent))%")
                                     .font(.system(size: 11, weight: .semibold))
                             }
                             Slider(value: $previewPercent, in: 0...100, step: 1)
@@ -148,7 +148,7 @@ public struct PopoverView: View {
         }
         for sub in codex.submodels {
             let name = sub.limitName ?? sub.limitId
-            items.append("\(name): \(Int(sub.usedPercent))% 소진")
+            items.append("\(name): \(Int(sub.remainingPercent))% 남음")
         }
         return items
     }

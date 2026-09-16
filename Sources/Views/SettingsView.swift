@@ -26,7 +26,7 @@ public struct SettingsView: View {
     
     let menuBarModes = [
         ("cat_only", "고양이 아이콘만"),
-        ("cat_percent", "고양이 + 사용량 (%)"),
+        ("cat_percent", "고양이 + 잔여량 (%)"),
         ("cat_countdown", "고양이 + 리셋 남은 시간")
     ]
     
@@ -69,11 +69,11 @@ public struct SettingsView: View {
                 if geminiApiKey.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text("Gemini 사용량 조절 (시뮬레이션)")
+                            Text("Gemini 잔여량 조절 (시뮬레이션)")
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
                             Spacer()
-                            Text("\(Int(geminiManualUsed))%")
+                            Text("잔여 \(Int(100.0 - geminiManualUsed))% (사용 \(Int(geminiManualUsed))%)")
                                 .font(.system(size: 11, weight: .semibold))
                         }
                         Slider(value: $geminiManualUsed, in: 0...100, step: 1)
@@ -104,7 +104,7 @@ public struct SettingsView: View {
                 }
                 .pickerStyle(.menu)
                 
-                Toggle("사용량 80% 이상 시 고양이 지침 알림 받기", isOn: $notifyHighUsage)
+                Toggle("잔여량 20% 이하 시 고양이 지침 알림 받기", isOn: $notifyHighUsage)
                     .font(.system(size: 11))
             }
             .padding(10)
