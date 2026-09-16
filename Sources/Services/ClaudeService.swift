@@ -68,14 +68,22 @@ public class ClaudeService {
             process.executableURL = URL(fileURLWithPath: binary)
             process.arguments = ["auth", "status", "--json"]
             
+            var env = ProcessInfo.processInfo.environment
+            let home = FileManager.default.homeDirectoryForCurrentUser.path
+            env["HOME"] = home
+            env["USER"] = NSUserName()
+            env["PATH"] = "\(home)/.local/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+            process.environment = env
+            process.standardInput = FileHandle.nullDevice
+            
             let pipe = Pipe()
             process.standardOutput = pipe
-            process.standardError = Pipe()
+            process.standardError = FileHandle.nullDevice
             
             var didComplete = false
             
             let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
-            timer.schedule(deadline: .now() + 3.0)
+            timer.schedule(deadline: .now() + 4.0)
             timer.setEventHandler {
                 if !didComplete {
                     didComplete = true

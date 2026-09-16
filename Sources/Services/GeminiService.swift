@@ -63,13 +63,22 @@ public class GeminiService {
             process.executableURL = URL(fileURLWithPath: binary)
             process.arguments = ["-p", "/quota"]
             
+            var env = ProcessInfo.processInfo.environment
+            let home = FileManager.default.homeDirectoryForCurrentUser.path
+            env["HOME"] = home
+            env["USER"] = NSUserName()
+            env["PATH"] = "\(home)/.local/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+            env["DEVELOPER_DIR"] = "/Library/Developer/CommandLineTools"
+            process.environment = env
+            process.standardInput = FileHandle.nullDevice
+            
             let pipe = Pipe()
             process.standardOutput = pipe
-            process.standardError = Pipe()
+            process.standardError = FileHandle.nullDevice
             
             var didComplete = false
             let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
-            timer.schedule(deadline: .now() + 8.0)
+            timer.schedule(deadline: .now() + 10.0)
             timer.setEventHandler {
                 if !didComplete {
                     didComplete = true
@@ -116,13 +125,18 @@ public class GeminiService {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { continue }
             
-            let parts = trimmed.components(separatedBy: "\t")
+            let parts: [String]
+            if trimmed.contains("\t") {
+                parts = trimmed.components(separatedBy: "\t").map { $0.trimmingCharacters(in: .whitespaces) }
+            } else {
+                parts = trimmed.components(separatedBy: "  ").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            }
             guard parts.count >= 4 else { continue }
             
-            let modelName = parts[0].trimmingCharacters(in: .whitespaces)
-            let limitType = parts[1].trimmingCharacters(in: .whitespaces)
-            let pctString = parts[2].trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "%", with: "")
-            let dateString = parts[3].trimmingCharacters(in: .whitespaces)
+            let modelName = parts[0]
+            let limitType = parts[1]
+            let pctString = parts[2].replacingOccurrences(of: "%", with: "")
+            let dateString = parts[3]
             
             guard modelName.lowercased().contains("gemini") else { continue }
             

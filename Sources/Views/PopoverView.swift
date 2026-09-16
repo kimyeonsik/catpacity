@@ -202,7 +202,7 @@ public struct PopoverView: View {
         var items: [String] = []
         let claude = appState.overallUsage.claude
         if !claude.isConnected {
-            items.append("로그인 또는 설정(⚙️)에서 API 키 연동")
+            items.append("구독 해지됨 또는 미로그인 (설정에서 API 키 연동 가능)")
         } else if claude.planName.contains("Max") {
             items.append("Claude Max 플랜 (우선 한도)")
         } else if claude.planName.contains("Pro") {
