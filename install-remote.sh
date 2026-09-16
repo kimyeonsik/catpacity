@@ -18,7 +18,16 @@ ZIP_URL="https://github.com/kimyeonsik/catpacity/releases/latest/download/Catpac
 
 # 2. 최신 앱 다운로드
 echo "📥 2/5. 최신 Catpacity 앱 다운로드 중..."
-curl -fL "$ZIP_URL" -o "$TEMP_DIR/Catpacity.zip"
+if ! curl -fL "$ZIP_URL" -o "$TEMP_DIR/Catpacity.zip" 2>/dev/null; then
+    echo "   (직접 링크 연결 실패, 최신 릴리즈 정보에서 다운로드 탐색 중...)"
+    FALLBACK_URL=$(curl -s "https://api.github.com/repos/kimyeonsik/catpacity/releases/latest" | grep "browser_download_url.*macOS\.zip" | head -n 1 | cut -d '"' -f 4)
+    if [ -n "$FALLBACK_URL" ]; then
+        curl -fL "$FALLBACK_URL" -o "$TEMP_DIR/Catpacity.zip"
+    else
+        echo "❌ 다운로드에 실패했습니다. 인터넷 연결 또는 GitHub 릴리즈 상태를 확인해주세요."
+        exit 1
+    fi
+fi
 
 # 3. 압축 해제
 echo "📦 3/5. 압축 해제 중..."
@@ -42,11 +51,8 @@ echo "🎉 =========================================="
 echo "✅  설치 완료! 상단 메뉴바에 도트 고양이가 나타났습니다!"
 echo "🎉 =========================================="
 echo ""
-
-# Codex 설치 여부 체크 및 안내
-if ! command -v codex &> /dev/null && [ ! -f "/Applications/Codex.app/Contents/Resources/codex" ]; then
-    echo "💡 [안내] Codex 요금제 연동을 위해 CLI가 필요합니다:"
-    echo "   1) 설치: npm install -g @openai/codex"
-    echo "   2) 로그인: codex login"
-    echo ""
-fi
+echo "💡 [AI 연동 안내]"
+echo " • OpenAI Codex : 'codex login'으로 자동 연동"
+echo " • Anthropic Claude : 'claude login' 또는 설정에서 API 키 입력"
+echo " • Google Gemini : Antigravity CLI 로그인 또는 설정에서 API 키 입력"
+echo ""
