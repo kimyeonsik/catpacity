@@ -8,20 +8,19 @@ public struct SettingsView: View {
     @AppStorage("catpacity_gemini_plan_type") private var geminiPlanType: String = "Google AI Pro"
     @AppStorage("catpacity_gemini_manual_used_percent") private var geminiManualUsed: Double = 35.0
     @AppStorage("catpacity_refresh_interval") private var refreshInterval: Int = 300 // 5 mins
-    @AppStorage("catpacity_menubar_mode") private var menuBarMode: String = "cat_only"
+    @AppStorage("catpacity_menubar_mode") private var menuBarMode: String = "cat_twoline"
     @AppStorage("catpacity_notify_on_high_usage") private var notifyHighUsage: Bool = true
     
-    @State private var selectedPlanOption: String = "Google AI Pro"
+    @State private var selectedPlanOption: String = "Google AI Pro (5 TB)"
     @State private var customPlanText: String = ""
     
     let planOptions = [
-        "Google AI Pro",
-        "Google One AI 프리미엄",
-        "Google AI 요금제 (Gemini Pro)",
-        "Gemini Advanced (Google One 2TB)",
+        "Google AI Pro (5 TB)",
+        "Google AI Plus (400 GB)",
+        "Google AI Ultra (20 TB)",
+        "Google One AI 프리미엄 (2 TB)",
         "Google AI Studio (API 키 연동)",
         "Google Workspace Gemini",
-        "Google Antigravity / Code Assist",
         "직접 입력..."
     ]
     
@@ -33,8 +32,9 @@ public struct SettingsView: View {
     ]
     
     let menuBarModes = [
+        ("cat_twoline", "고양이 + 2줄 (Codex & Gemini 잔여량 / 리셋)"),
         ("cat_only", "고양이 아이콘만"),
-        ("cat_percent", "고양이 + 잔여량 (%)"),
+        ("cat_percent", "고양이 + 최소 잔여량 (%)"),
         ("cat_countdown", "고양이 + 리셋 남은 시간")
     ]
     
@@ -93,7 +93,7 @@ public struct SettingsView: View {
                     }
                 }
                 
-                Text("💡 Google One 월 구독자(Gemini 1.5 Pro)는 'Google AI Pro' 또는 'Google One AI 프리미엄'을 선택하시면 됩니다.")
+                Text("💡 공식 Google AI 요금제: Pro (5 TB), Plus (400 GB), Ultra (20 TB) 중 사용 중인 플랜을 선택하세요.")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
                     .lineLimit(2)
@@ -182,6 +182,9 @@ public struct SettingsView: View {
         .onAppear {
             if planOptions.dropLast().contains(geminiPlanType) {
                 selectedPlanOption = geminiPlanType
+            } else if geminiPlanType.contains("Google AI Pro") {
+                selectedPlanOption = "Google AI Pro (5 TB)"
+                geminiPlanType = "Google AI Pro (5 TB)"
             } else {
                 selectedPlanOption = "직접 입력..."
                 customPlanText = geminiPlanType

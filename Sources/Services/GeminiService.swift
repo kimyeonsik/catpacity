@@ -15,7 +15,7 @@ public class GeminiService {
     }
     
     public var planType: String {
-        get { defaults.string(forKey: planTypeKey) ?? "Google AI Pro" }
+        get { defaults.string(forKey: planTypeKey) ?? "Google AI Pro (5 TB)" }
         set { defaults.set(newValue, forKey: planTypeKey) }
     }
     

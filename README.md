@@ -97,9 +97,12 @@ cd /Volumes/T7/Projects/my-ai/Catpacity
 ## ⚙️ 설정 옵션
 팝오버 오른쪽 아래의 톱니바퀴(⚙️) 아이콘을 눌러 설정할 수 있습니다:
 * **상단 표시 형식**:
+  * **고양이 + 2줄 상세 (Codex & Gemini 잔여량 / 리셋 시간)** (추천!)
   * 고양이 아이콘만 표시 (미니멀)
-  * 고양이 + 잔여량 (%) 표시
+  * 고양이 + 최소 잔여량 (%) 표시
   * 고양이 + 리셋 남은 시간 표시
 * **자동 새로고침 주기**: 1분 / 5분(권장) / 15분 / 30분
 * **잔여량 경고 알림**: 잔여량이 20% 및 5%로 떨어질 때 고양이가 지쳐간다는 macOS 시스템 푸시 알림 발송
-* **Gemini API 키 및 요금제 설정**
+* **Google AI 공식 요금제 설정**:
+  * `Google AI Pro (5 TB)` / `Google AI Plus (400 GB)` / `Google AI Ultra (20 TB)`
+  * `Google One AI 프리미엄 (2 TB)` / `Google AI Studio API` / `직접 입력(커스텀)` 지원

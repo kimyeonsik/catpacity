@@ -26,6 +26,28 @@ public struct TimeFormatter {
         }
     }
     
+    public static func formatShortReset(until targetDate: Date?) -> String {
+        guard let targetDate = targetDate else { return "" }
+        let now = Date()
+        let interval = targetDate.timeIntervalSince(now)
+        if interval <= 0 { return "곧 리셋" }
+        
+        let seconds = Int(interval)
+        let days = seconds / 86400
+        let hours = (seconds % 86400) / 3600
+        let minutes = (seconds % 3600) / 60
+        
+        if days > 0 {
+            return "\(days)일 남음"
+        } else if hours > 0 {
+            return "\(hours)시간 남음"
+        } else if minutes > 0 {
+            return "\(minutes)분 남음"
+        } else {
+            return "\(seconds)초 남음"
+        }
+    }
+    
     public static func formatExactTime(_ date: Date?) -> String {
         guard let date = date else { return "-" }
         let df = DateFormatter()
