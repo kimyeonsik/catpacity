@@ -6,6 +6,18 @@ macOS 메뉴바(상단 트레이)에 상주하며, **OpenAI Codex** 및 **Google
 
 ---
 
+## 📦 최신 릴리즈 다운로드 (Download)
+
+다른 Mac에서 바로 다운로드하여 설치하실 수 있습니다:
+
+* 💿 **[Catpacity.dmg 다운로드 (223 KB)](https://github.com/kimyeonsik/catpacity/releases/download/v1.0.0/Catpacity.dmg)** (추천: 더블 클릭 후 드래그 앤 드롭)
+* 📦 **[Catpacity-Installer.pkg 다운로드 (173 KB)](https://github.com/kimyeonsik/catpacity/releases/download/v1.0.0/Catpacity-Installer.pkg)** (macOS 원클릭 설치 마법사)
+* 🗜️ **[Catpacity-v1.0.0-macOS.zip 다운로드 (174 KB)](https://github.com/kimyeonsik/catpacity/releases/download/v1.0.0/Catpacity-v1.0.0-macOS.zip)** (압축 파일)
+
+> 🔗 전체 릴리즈 페이지: [GitHub Releases v1.0.0](https://github.com/kimyeonsik/catpacity/releases/tag/v1.0.0)
+
+---
+
 ## ✨ 핵심 기능
 
 ### 1. 👾 움직이는 레트로 도트(Pixel Art) 고양이 아이콘
