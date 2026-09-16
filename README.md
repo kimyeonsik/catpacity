@@ -6,7 +6,17 @@ macOS 메뉴바(상단 트레이)에 상주하며, **OpenAI Codex** 및 **Google
 
 ---
 
-## 📦 최신 릴리즈 다운로드 (Download)
+## 🚀 초간단 원클릭 설치 (One-Line Install - 가장 추천!)
+
+다른 Mac의 **터미널(Terminal)**에서 아래 명령어 **단 한 줄**만 복사해서 붙여넣고 엔터를 치면, 보안 경고 없이 자동으로 설치 및 실행됩니다:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kimyeonsik/catpacity/main/install-remote.sh | bash
+```
+
+---
+
+## 📦 패키지 수동 다운로드 (Manual Download)
 
 다른 Mac에서 바로 다운로드하여 설치하실 수 있습니다:
 
