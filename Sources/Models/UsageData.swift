@@ -65,7 +65,7 @@ public struct GeminiUsage: Codable {
     
     public static var initial: GeminiUsage {
         GeminiUsage(
-            planName: "Gemini Advanced",
+            planName: UserDefaults.standard.string(forKey: "catpacity_gemini_plan_type") ?? "Google AI Pro",
             usedPercent: 0,
             usedRequests: nil,
             limitRequests: nil,
