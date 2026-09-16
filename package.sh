@@ -13,7 +13,7 @@ echo "🐱 최신 버전 Catpacity 빌드 중..."
 
 APP_PATH="$SCRIPT_DIR/Catpacity.app"
 APP_NAME="Catpacity"
-VERSION="1.0.1"
+VERSION="1.1.0"
 
 echo "📦 1. macOS Installer Package (.pkg) 생성 중..."
 pkgbuild \
@@ -68,6 +68,7 @@ rm -rf "$DMG_STAGING"
 echo "🗜️ 3. 공유/전송용 .zip 압축 파일 생성 중..."
 cd "$SCRIPT_DIR"
 ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$DIST_DIR/${APP_NAME}-v${VERSION}-macOS.zip"
+cp "$DIST_DIR/${APP_NAME}-v${VERSION}-macOS.zip" "$DIST_DIR/${APP_NAME}-macOS.zip"
 
 echo ""
 echo "🎉 패키지 제작 완료! 배포 파일 목록 ($DIST_DIR):"

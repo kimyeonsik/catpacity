@@ -142,7 +142,7 @@ public struct SettingsView: View {
             Spacer()
             
             HStack {
-                Text("Catpacity v1.1 • Codex + Gemini + Claude")
+                Text("Catpacity v1.1.0 • Codex + Gemini + Claude")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
                 Spacer()

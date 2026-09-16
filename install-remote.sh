@@ -14,7 +14,7 @@ pkill -9 -f "Catpacity" 2>/dev/null || true
 sleep 1
 
 TEMP_DIR=$(mktemp -d)
-ZIP_URL="https://github.com/kimyeonsik/catpacity/releases/download/v1.0.0/Catpacity-v1.0.1-macOS.zip"
+ZIP_URL="https://github.com/kimyeonsik/catpacity/releases/latest/download/Catpacity-macOS.zip"
 
 # 2. 최신 앱 다운로드
 echo "📥 2/5. 최신 Catpacity 앱 다운로드 중..."

@@ -20,11 +20,11 @@ curl -fsSL https://raw.githubusercontent.com/kimyeonsik/catpacity/main/install-r
 
 다른 Mac에서 바로 다운로드하여 설치하실 수 있습니다:
 
-* 💿 **[Catpacity.dmg 다운로드](https://github.com/kimyeonsik/catpacity/releases/download/v1.0.0/Catpacity.dmg)** (추천: 더블 클릭 후 드래그 앤 드롭)
-* 📦 **[Catpacity-Installer.pkg 다운로드](https://github.com/kimyeonsik/catpacity/releases/download/v1.0.0/Catpacity-Installer.pkg)** (macOS 원클릭 설치 마법사)
-* 🗜️ **[Catpacity-v1.0.1-macOS.zip 다운로드](https://github.com/kimyeonsik/catpacity/releases/download/v1.0.0/Catpacity-v1.0.1-macOS.zip)** (압축 파일)
+* 💿 **[Catpacity.dmg 다운로드](https://github.com/kimyeonsik/catpacity/releases/latest/download/Catpacity.dmg)** (추천: 더블 클릭 후 드래그 앤 드롭)
+* 📦 **[Catpacity-Installer.pkg 다운로드](https://github.com/kimyeonsik/catpacity/releases/latest/download/Catpacity-Installer.pkg)** (macOS 원클릭 설치 마법사)
+* 🗜️ **[Catpacity-macOS.zip 다운로드](https://github.com/kimyeonsik/catpacity/releases/latest/download/Catpacity-macOS.zip)** (최신 압축 파일)
 
-> 🔗 전체 릴리즈 페이지: [GitHub Releases v1.0.0](https://github.com/kimyeonsik/catpacity/releases/tag/v1.0.0)
+> 🔗 전체 릴리즈 내역: [GitHub Releases](https://github.com/kimyeonsik/catpacity/releases)
 
 ---
 
@@ -42,7 +42,7 @@ curl -fsSL https://raw.githubusercontent.com/kimyeonsik/catpacity/main/install-r
 다른 Mac(Air, Pro, Mac mini 등)으로 쉽게 옮겨 설치할 수 있도록 3가지 표준 패키지가 자동으로 생성됩니다:
 * **`Catpacity.dmg`**: 더블 클릭 후 `/Applications` 폴더로 끌어다 놓는 가장 친숙한 macOS 디스크 이미지.
 * **`Catpacity-Installer.pkg`**: 애플 표준 인스톨러 패키지로 다음-다음을 눌러 원클릭 설치.
-* **`Catpacity-v1.0.0-macOS.zip`**: AirDrop, 슬랙, 카카오톡 등으로 전송하기 편한 압축 파일.
+* **`Catpacity-macOS.zip`**: AirDrop, 슬랙, 카카오톡 등으로 전송하기 편한 압축 파일.
 
 ### 3. ⚡️ OpenAI Codex 실시간 자동 연동
 * 로컬 Codex 데몬(`codex app-server`)의 `account/rateLimits/read` RPC와 직접 통신
