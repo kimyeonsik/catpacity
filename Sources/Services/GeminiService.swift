@@ -19,25 +19,66 @@ public class GeminiService {
         set { defaults.set(newValue, forKey: planTypeKey) }
     }
     
-    public var manualUsedPercent: Double {
-        get { defaults.double(forKey: manualUsedPercentKey) }
-        set { defaults.set(newValue, forKey: manualUsedPercentKey) }
-    }
-    
     public func fetchUsage(completion: @escaping (GeminiUsage) -> Void) {
         let key = self.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         
         if !key.isEmpty {
             fetchWithApiKey(key: key, completion: completion)
         } else {
-            // Subscription / Preset mode (Gemini Advanced, Antigravity, etc.)
-            fetchSubscriptionPreset(completion: completion)
+            checkLocalGoogleCli(completion: completion)
+        }
+    }
+    
+    private func checkLocalGoogleCli(completion: @escaping (GeminiUsage) -> Void) {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let accountsPath = home.appendingPathComponent(".gemini/google_accounts.json").path
+        
+        var activeAccount: String? = nil
+        if let data = FileManager.default.contents(atPath: accountsPath),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let active = json["active"] as? String, !active.isEmpty {
+            activeAccount = active
+        }
+        
+        if let email = activeAccount {
+            // Local Gemini CLI active login found
+            let resetDate = calculateNextRollingReset(intervalHours: 3)
+            DispatchQueue.main.async {
+                completion(GeminiUsage(
+                    planName: "Gemini (\(email))",
+                    usedPercent: 0.0,
+                    usedRequests: nil,
+                    limitRequests: nil,
+                    remainingTokens: nil,
+                    limitTokens: nil,
+                    resetsAt: resetDate,
+                    lastUpdated: Date(),
+                    isConnected: true,
+                    errorMessage: nil
+                ))
+            }
+        } else {
+            // Neither API key nor active CLI session exists
+            DispatchQueue.main.async {
+                completion(GeminiUsage(
+                    planName: "미연동",
+                    usedPercent: 0.0,
+                    usedRequests: nil,
+                    limitRequests: nil,
+                    remainingTokens: nil,
+                    limitTokens: nil,
+                    resetsAt: nil,
+                    lastUpdated: Date(),
+                    isConnected: false,
+                    errorMessage: "Gemini 미연동 (API 키 또는 CLI 로그인 필요)"
+                ))
+            }
         }
     }
     
     private func fetchWithApiKey(key: String, completion: @escaping (GeminiUsage) -> Void) {
         guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models?key=\(key)") else {
-            fetchSubscriptionPreset(completion: completion)
+            checkLocalGoogleCli(completion: completion)
             return
         }
         
@@ -61,15 +102,13 @@ public class GeminiService {
                         usedPercent = Double(lim - rem) / Double(lim) * 100.0
                     } else if let rem = remainingReq, let lim = limitReq, lim > 0 {
                         usedPercent = Double(lim - rem) / Double(lim) * 100.0
-                    } else {
-                        usedPercent = self.manualUsedPercent
                     }
                     
                     let nextReset = self.calculateNextRollingReset(intervalHours: 1)
                     
                     DispatchQueue.main.async {
                         completion(GeminiUsage(
-                            planName: "Gemini API (유료/개발자)",
+                            planName: "Gemini API",
                             usedPercent: min(100.0, max(0.0, usedPercent)),
                             usedRequests: (limitReq != nil && remainingReq != nil) ? (limitReq! - remainingReq!) : nil,
                             limitRequests: limitReq,
@@ -82,41 +121,40 @@ public class GeminiService {
                         ))
                     }
                     return
+                } else {
+                    DispatchQueue.main.async {
+                        completion(GeminiUsage(
+                            planName: "API 오류",
+                            usedPercent: 0.0,
+                            usedRequests: nil,
+                            limitRequests: nil,
+                            remainingTokens: nil,
+                            limitTokens: nil,
+                            resetsAt: nil,
+                            lastUpdated: Date(),
+                            isConnected: false,
+                            errorMessage: "Gemini API 인증 실패 (HTTP \(httpResponse.statusCode))"
+                        ))
+                    }
+                    return
                 }
             }
             
-            // If API key failed or had error, return subscription preset with note
             DispatchQueue.main.async {
-                var preset = self.createPresetUsage()
-                if let err = error {
-                    preset.errorMessage = "API 연결 오류: \(err.localizedDescription)"
-                }
-                completion(preset)
+                completion(GeminiUsage(
+                    planName: "연결 오류",
+                    usedPercent: 0.0,
+                    usedRequests: nil,
+                    limitRequests: nil,
+                    remainingTokens: nil,
+                    limitTokens: nil,
+                    resetsAt: nil,
+                    lastUpdated: Date(),
+                    isConnected: false,
+                    errorMessage: "Gemini 통신 실패: \(error?.localizedDescription ?? "알 수 없는 오류")"
+                ))
             }
         }.resume()
-    }
-    
-    private func fetchSubscriptionPreset(completion: @escaping (GeminiUsage) -> Void) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            completion(self.createPresetUsage())
-        }
-    }
-    
-    private func createPresetUsage() -> GeminiUsage {
-        let resetDate = calculateNextRollingReset(intervalHours: 3)
-        return GeminiUsage(
-            planName: self.planType,
-            usedPercent: 0.0,
-            usedRequests: nil,
-            limitRequests: nil,
-            remainingTokens: nil,
-            limitTokens: nil,
-            resetsAt: resetDate,
-            lastUpdated: Date(),
-            isConnected: true,
-            errorMessage: nil
-        )
     }
     
     private func calculateNextRollingReset(intervalHours: Int) -> Date {

@@ -141,11 +141,15 @@ public struct PopoverView: View {
     private var geminiDetails: [String] {
         var items: [String] = []
         let gemini = appState.overallUsage.gemini
-        if let remTokens = gemini.remainingTokens, let limTokens = gemini.limitTokens {
-            items.append("잔여 토큰: \(remTokens.formatted()) / \(limTokens.formatted()) TPM")
-        }
-        if let remReq = gemini.usedRequests, let limReq = gemini.limitRequests {
-            items.append("사용 요청: \(remReq) / \(limReq) RPM")
+        if !gemini.isConnected {
+            items.append("Google AI Studio 무료 API 키 연동 필요")
+        } else {
+            if let remTokens = gemini.remainingTokens, let limTokens = gemini.limitTokens {
+                items.append("잔여 토큰: \(remTokens.formatted()) / \(limTokens.formatted()) TPM")
+            }
+            if let remReq = gemini.usedRequests, let limReq = gemini.limitRequests {
+                items.append("사용 요청: \(remReq) / \(limReq) RPM")
+            }
         }
         return items
     }

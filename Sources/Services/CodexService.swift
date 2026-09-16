@@ -140,30 +140,54 @@ public class CodexService {
     
     private func parseResponse(_ jsonString: String) -> CodexUsage {
         guard let data = jsonString.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let result = json["result"] as? [String: Any] else {
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             var failed = CodexUsage.initial
-            failed.errorMessage = "응답 파싱 실패"
+            failed.isConnected = false
+            failed.errorMessage = "Codex 응답 파싱 실패"
             return failed
         }
         
-        let rateLimits = result["rateLimits"] as? [String: Any] ?? [:]
+        // 1. Check RPC Error
+        if let err = json["error"] as? [String: Any] {
+            let msg = err["message"] as? String ?? "인증 실패"
+            var failed = CodexUsage.initial
+            failed.isConnected = false
+            failed.errorMessage = "Codex 오류: \(msg)"
+            return failed
+        }
+        
+        // 2. Strictly verify rateLimits and primary quota exist
+        guard let result = json["result"] as? [String: Any],
+              let rateLimits = result["rateLimits"] as? [String: Any],
+              let primary = rateLimits["primary"] as? [String: Any] else {
+            var failed = CodexUsage.initial
+            failed.isConnected = false
+            failed.errorMessage = "Codex 미로그인 (터미널에서 'codex login' 필요)"
+            return failed
+        }
+        
+        let ordinaryUsageAllowed = result["ordinaryUsageAllowed"] as? Bool ?? true
+        if !ordinaryUsageAllowed {
+            var failed = CodexUsage.initial
+            failed.isConnected = false
+            failed.errorMessage = "Codex 계정 사용 제한됨 (한도 초과)"
+            return failed
+        }
+        
         let rawPlan = rateLimits["planType"] as? String ?? "pro"
         let planType = "Codex " + rawPlan.capitalized
         
-        let primary = rateLimits["primary"] as? [String: Any]
-        let usedPercent = Double(primary?["usedPercent"] as? Int ?? 0)
-        let windowDurationMins = primary?["windowDurationMins"] as? Int
+        let usedPercent = Double(primary["usedPercent"] as? Int ?? 0)
+        let windowDurationMins = primary["windowDurationMins"] as? Int
         
         var resetsAtDate: Date? = nil
-        if let resetsAt = primary?["resetsAt"] as? TimeInterval {
+        if let resetsAt = primary["resetsAt"] as? TimeInterval {
             resetsAtDate = Date(timeIntervalSince1970: resetsAt)
         }
         
         let credits = rateLimits["credits"] as? [String: Any]
         let balance = credits?["balance"] as? String
         let hasCredits = credits?["hasCredits"] as? Bool ?? false
-        let ordinaryUsageAllowed = result["ordinaryUsageAllowed"] as? Bool ?? true
         
         var submodels: [SubModelUsage] = []
         if let byLimitId = result["rateLimitsByLimitId"] as? [String: [String: Any]] {
