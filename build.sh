@@ -16,6 +16,9 @@ mkdir -p "$MACOS_DIR"
 mkdir -p "$RESOURCES_DIR"
 
 cp "$SCRIPT_DIR/Assets/Info.plist" "$BUNDLE_DIR/Contents/Info.plist"
+if [ -f "$SCRIPT_DIR/Assets/AppIcon.icns" ]; then
+    cp "$SCRIPT_DIR/Assets/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
+fi
 
 SDK_PATH="/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"
 export DEVELOPER_DIR="/Library/Developer/CommandLineTools"
