@@ -107,7 +107,7 @@ public class GeminiService {
         let resetDate = calculateNextRollingReset(intervalHours: 3)
         return GeminiUsage(
             planName: self.planType,
-            usedPercent: self.manualUsedPercent > 0 ? self.manualUsedPercent : 28.0, // Default comfortable usage if not set
+            usedPercent: 0.0,
             usedRequests: nil,
             limitRequests: nil,
             remainingTokens: nil,

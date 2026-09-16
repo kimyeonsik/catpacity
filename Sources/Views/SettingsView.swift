@@ -111,20 +111,15 @@ public struct SettingsView: View {
                 }
                 
                 if geminiApiKey.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("Gemini 잔여량 조절 (시뮬레이션)")
-                                .font(.system(size: 11))
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Text("잔여 \(Int(100.0 - geminiManualUsed))% (사용 \(Int(geminiManualUsed))%)")
-                                .font(.system(size: 11, weight: .semibold))
-                        }
-                        Slider(value: $geminiManualUsed, in: 0...100, step: 1)
-                            .onChange(of: geminiManualUsed) { _ in
-                                appState?.refreshGemini()
-                            }
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 6, height: 6)
+                        Text("Google AI Pro 요금제 연동 중 (3시간 롤링 리셋 자동 동기화)")
+                            .font(.system(size: 10.5))
+                            .foregroundColor(.secondary)
                     }
+                    .padding(.top, 2)
                 }
             }
             .padding(10)

@@ -3,11 +3,9 @@ import SwiftUI
 public struct PopoverView: View {
     @ObservedObject var appState: AppState
     @State private var showingSettings = false
-    @State private var previewMode = false
-    @State private var previewPercent: Double = 67.0
     
     public var body: some View {
-        let activeRemaining = previewMode ? previewPercent : appState.overallUsage.minRemainingPercent
+        let activeRemaining = appState.overallUsage.minRemainingPercent
         let activeStage = CatStage.from(remainingPercent: activeRemaining)
         
         VStack(spacing: 12) {
@@ -53,25 +51,6 @@ public struct PopoverView: View {
                             showingSettings = true
                         }
                     )
-                    
-                    // Interactive Cat Simulator (Toggle)
-                    if previewMode {
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text("고양이 변신 테스트 슬라이더 🐾")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.purple)
-                                Spacer()
-                                Text("잔여 \(Int(previewPercent))%")
-                                    .font(.system(size: 11, weight: .semibold))
-                            }
-                            Slider(value: $previewPercent, in: 0...100, step: 1)
-                                .accentColor(.purple)
-                        }
-                        .padding(10)
-                        .background(Color.purple.opacity(0.08))
-                        .cornerRadius(10)
-                    }
                 }
                 .padding(.horizontal, 2)
             }
@@ -90,18 +69,6 @@ public struct PopoverView: View {
                 }
                 
                 Spacer()
-                
-                Button(action: {
-                    withAnimation {
-                        previewMode.toggle()
-                    }
-                }) {
-                    Image(systemName: previewMode ? "eye.slash" : "eye")
-                        .font(.system(size: 11))
-                        .foregroundColor(previewMode ? .purple : .secondary)
-                }
-                .buttonStyle(.plain)
-                .help(previewMode ? "시뮬레이션 닫기" : "고양이 늘어짐 단계 미리보기")
                 
                 Button(action: {
                     appState.refreshAll()
