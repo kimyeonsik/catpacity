@@ -14,6 +14,22 @@ public struct SubModelUsage: Identifiable, Codable {
 }
 
 public struct CodexUsage: Codable {
+    private static let cacheKey = "catpacity_codex_usage_cache"
+    
+    public static func loadCached() -> CodexUsage? {
+        guard let data = UserDefaults.standard.data(forKey: cacheKey),
+              let cached = try? JSONDecoder().decode(CodexUsage.self, from: data) else {
+            return nil
+        }
+        return cached
+    }
+    
+    public func saveCached() {
+        if let data = try? JSONEncoder().encode(self) {
+            UserDefaults.standard.set(data, forKey: CodexUsage.cacheKey)
+        }
+    }
+    
     public var planType: String
     public var usedPercent: Double
     public var resetsAt: Date?
@@ -25,13 +41,19 @@ public struct CodexUsage: Codable {
     public var lastUpdated: Date
     public var isConnected: Bool
     public var errorMessage: String?
+    public var isChecking: Bool = false
     
     public var remainingPercent: Double {
         return max(0.0, 100.0 - usedPercent)
     }
     
     public static var initial: CodexUsage {
-        CodexUsage(
+        if let cached = loadCached(), cached.isConnected {
+            var res = cached
+            res.isChecking = true
+            return res
+        }
+        return CodexUsage(
             planType: "Codex Pro",
             usedPercent: 0,
             resetsAt: nil,
@@ -42,12 +64,29 @@ public struct CodexUsage: Codable {
             submodels: [],
             lastUpdated: Date(),
             isConnected: false,
-            errorMessage: nil
+            errorMessage: "확인 중...",
+            isChecking: true
         )
     }
 }
 
 public struct GeminiUsage: Codable {
+    private static let cacheKey = "catpacity_gemini_usage_cache"
+    
+    public static func loadCached() -> GeminiUsage? {
+        guard let data = UserDefaults.standard.data(forKey: cacheKey),
+              let cached = try? JSONDecoder().decode(GeminiUsage.self, from: data) else {
+            return nil
+        }
+        return cached
+    }
+    
+    public func saveCached() {
+        if let data = try? JSONEncoder().encode(self) {
+            UserDefaults.standard.set(data, forKey: GeminiUsage.cacheKey)
+        }
+    }
+    
     public var planName: String
     public var usedPercent: Double
     public var usedRequests: Int?
@@ -58,6 +97,7 @@ public struct GeminiUsage: Codable {
     public var lastUpdated: Date
     public var isConnected: Bool
     public var errorMessage: String?
+    public var isChecking: Bool = false
     
     public var weeklyRemainingPercent: Double?
     public var weeklyResetsAt: Date?
@@ -67,7 +107,12 @@ public struct GeminiUsage: Codable {
     }
     
     public static var initial: GeminiUsage {
-        GeminiUsage(
+        if let cached = loadCached(), cached.isConnected {
+            var res = cached
+            res.isChecking = true
+            return res
+        }
+        return GeminiUsage(
             planName: UserDefaults.standard.string(forKey: "catpacity_gemini_plan_type") ?? "Gemini",
             usedPercent: 0,
             usedRequests: nil,
@@ -77,7 +122,8 @@ public struct GeminiUsage: Codable {
             resetsAt: nil,
             lastUpdated: Date(),
             isConnected: false,
-            errorMessage: nil,
+            errorMessage: "확인 중...",
+            isChecking: true,
             weeklyRemainingPercent: nil,
             weeklyResetsAt: nil
         )
@@ -85,25 +131,48 @@ public struct GeminiUsage: Codable {
 }
 
 public struct ClaudeUsage: Codable {
+    private static let cacheKey = "catpacity_claude_usage_cache"
+    
+    public static func loadCached() -> ClaudeUsage? {
+        guard let data = UserDefaults.standard.data(forKey: cacheKey),
+              let cached = try? JSONDecoder().decode(ClaudeUsage.self, from: data) else {
+            return nil
+        }
+        return cached
+    }
+    
+    public func saveCached() {
+        if let data = try? JSONEncoder().encode(self) {
+            UserDefaults.standard.set(data, forKey: ClaudeUsage.cacheKey)
+        }
+    }
+    
     public var planName: String
     public var usedPercent: Double
     public var resetsAt: Date?
     public var lastUpdated: Date
     public var isConnected: Bool
     public var errorMessage: String?
+    public var isChecking: Bool = false
     
     public var remainingPercent: Double {
         return max(0.0, 100.0 - usedPercent)
     }
     
     public static var initial: ClaudeUsage {
-        ClaudeUsage(
+        if let cached = loadCached(), cached.isConnected {
+            var res = cached
+            res.isChecking = true
+            return res
+        }
+        return ClaudeUsage(
             planName: "Claude",
             usedPercent: 0,
             resetsAt: nil,
             lastUpdated: Date(),
             isConnected: false,
-            errorMessage: nil
+            errorMessage: "확인 중...",
+            isChecking: true
         )
     }
 }

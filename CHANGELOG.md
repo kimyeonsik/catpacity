@@ -5,6 +5,20 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ---
 
+## [1.2.2] - 2026-09-17
+
+### ⚡️ Stability & State Management Improvements
+- **직전 정상 쿼터 캐싱 (Stale-While-Revalidate)**:
+  - 앱 시작 시 5~7초간 `미연동`으로 깜빡이는 현상 해결. 직전 세션에서 성공한 쿼터를 즉시 띄우고 백그라운드에서 비동기 갱신.
+- **일시적 실패/타임아웃 시 Grace Fallback**:
+  - 와이파이 재접속, 슬립 복귀, 네트워크 일시 지연 시 즉시 `미연동`으로 전환되지 않고 직전 정상 연동 데이터를 유지.
+- **중복 호출 방지 락 (`isFetching`)**:
+  - Gemini 및 Claude 서비스에 프로세스 중복 실행 방지 락을 추가하여 백그라운드 갱신과 수동 새로고침 간 경합 및 충돌 방지.
+- **초기 로딩 상태 '확인 중...' 도입**:
+  - 최초 실행 시 연결 상태를 확인하는 동안에는 `미연동` 대신 `확인 중...`(노란색 인디케이터)으로 정확하고 친절하게 안내.
+
+---
+
 ## [1.2.1] - 2026-09-17
 
 ### 🎨 UI & UX Improvements

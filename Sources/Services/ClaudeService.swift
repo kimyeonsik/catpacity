@@ -11,13 +11,33 @@ public class ClaudeService {
         set { defaults.set(newValue, forKey: apiKeyKey) }
     }
     
+    private var isFetching = false
+    public var lastKnownValidUsage: ClaudeUsage? = ClaudeUsage.loadCached()
+    
     public func fetchUsage(completion: @escaping (ClaudeUsage) -> Void) {
+        if isFetching {
+            if let cached = lastKnownValidUsage {
+                completion(cached)
+            }
+            return
+        }
+        isFetching = true
+        
+        let completionWrapper: (ClaudeUsage) -> Void = { [weak self] usage in
+            self?.isFetching = false
+            if usage.isConnected {
+                self?.lastKnownValidUsage = usage
+                usage.saveCached()
+            }
+            completion(usage)
+        }
+        
         let key = self.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         
         if !key.isEmpty {
-            fetchWithApiKey(key: key, completion: completion)
+            fetchWithApiKey(key: key, completion: completionWrapper)
         } else {
-            checkClaudeCliAuth(completion: completion)
+            checkClaudeCliAuth(completion: completionWrapper)
         }
     }
     
@@ -82,15 +102,24 @@ public class ClaudeService {
                 if !didComplete {
                     didComplete = true
                     process.terminate()
-                    DispatchQueue.main.async {
-                        completion(ClaudeUsage(
-                            planName: "미연동",
-                            usedPercent: 0.0,
-                            resetsAt: nil,
-                            lastUpdated: Date(),
-                            isConnected: false,
-                            errorMessage: "Claude 인증 확인 시간 초과"
-                        ))
+                    if var cached = self.lastKnownValidUsage, cached.isConnected {
+                        cached.lastUpdated = Date()
+                        cached.isChecking = false
+                        DispatchQueue.main.async {
+                            completion(cached)
+                        }
+                    } else {
+                        DispatchQueue.main.async {
+                            completion(ClaudeUsage(
+                                planName: "미연동",
+                                usedPercent: 0.0,
+                                resetsAt: nil,
+                                lastUpdated: Date(),
+                                isConnected: false,
+                                errorMessage: "Claude 인증 확인 시간 초과",
+                                isChecking: false
+                            ))
+                        }
                     }
                 }
             }
@@ -122,6 +151,8 @@ public class ClaudeService {
                 }
                 
                 if !isLoggedIn {
+                    UserDefaults.standard.removeObject(forKey: "catpacity_claude_usage_cache")
+                    self.lastKnownValidUsage = nil
                     DispatchQueue.main.async {
                         completion(ClaudeUsage(
                             planName: "구독 없음",
@@ -129,7 +160,8 @@ public class ClaudeService {
                             resetsAt: nil,
                             lastUpdated: Date(),
                             isConnected: false,
-                            errorMessage: "Claude 미연동 (로그아웃됨 또는 구독 없음)"
+                            errorMessage: "Claude 미연동 (로그아웃됨 또는 구독 없음)",
+                            isChecking: false
                         ))
                     }
                     return
@@ -141,15 +173,24 @@ public class ClaudeService {
                 if didComplete { return }
                 didComplete = true
                 timer.cancel()
-                DispatchQueue.main.async {
-                    completion(ClaudeUsage(
-                        planName: "미연동",
-                        usedPercent: 0.0,
-                        resetsAt: nil,
-                        lastUpdated: Date(),
-                        isConnected: false,
-                        errorMessage: "Claude 인증 확인 오류: \(error.localizedDescription)"
-                    ))
+                if var cached = self.lastKnownValidUsage, cached.isConnected {
+                    cached.lastUpdated = Date()
+                    cached.isChecking = false
+                    DispatchQueue.main.async {
+                        completion(cached)
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        completion(ClaudeUsage(
+                            planName: "미연동",
+                            usedPercent: 0.0,
+                            resetsAt: nil,
+                            lastUpdated: Date(),
+                            isConnected: false,
+                            errorMessage: "Claude 인증 프로세스 실행 실패",
+                            isChecking: false
+                        ))
+                    }
                 }
             }
         }

@@ -66,15 +66,15 @@ public class AppState: ObservableObject {
         let showPercent = UserDefaults.standard.object(forKey: "catpacity_show_percent") as? Bool ?? true
         let showReset = UserDefaults.standard.object(forKey: "catpacity_show_reset_time") as? Bool ?? true
         
-        var providers: [(name: String, isConnected: Bool, remaining: Double, resetsAt: Date?)] = []
+        var providers: [(name: String, isConnected: Bool, isChecking: Bool, remaining: Double, resetsAt: Date?)] = []
         if showCodex {
-            providers.append(("Codex", overallUsage.codex.isConnected, overallUsage.codex.remainingPercent, overallUsage.codex.resetsAt))
+            providers.append(("Codex", overallUsage.codex.isConnected, overallUsage.codex.isChecking, overallUsage.codex.remainingPercent, overallUsage.codex.resetsAt))
         }
         if showGemini {
-            providers.append(("Gemini", overallUsage.gemini.isConnected, overallUsage.gemini.remainingPercent, overallUsage.gemini.resetsAt))
+            providers.append(("Gemini", overallUsage.gemini.isConnected, overallUsage.gemini.isChecking, overallUsage.gemini.remainingPercent, overallUsage.gemini.resetsAt))
         }
         if showClaude {
-            providers.append(("Claude", overallUsage.claude.isConnected, overallUsage.claude.remainingPercent, overallUsage.claude.resetsAt))
+            providers.append(("Claude", overallUsage.claude.isConnected, overallUsage.claude.isChecking, overallUsage.claude.remainingPercent, overallUsage.claude.resetsAt))
         }
         
         guard !providers.isEmpty else {
@@ -102,7 +102,8 @@ public class AppState: ObservableObject {
         for p in providers {
             let str = NSMutableAttributedString()
             if !p.isConnected {
-                str.append(NSAttributedString(string: "\(p.name): 미연동", attributes: [.font: normalFont, .foregroundColor: NSColor.secondaryLabelColor]))
+                let statusText = p.isChecking ? "\(p.name): 확인 중..." : "\(p.name): 미연동"
+                str.append(NSAttributedString(string: statusText, attributes: [.font: normalFont, .foregroundColor: NSColor.secondaryLabelColor]))
             } else {
                 var prefix = "\(p.name):"
                 if showPercent {

@@ -4,9 +4,15 @@ public class CodexService {
     public static let shared = CodexService()
     
     private var isFetching = false
+    public var lastKnownValidUsage: CodexUsage? = CodexUsage.loadCached()
     
     public func fetchUsage(completion: @escaping (CodexUsage) -> Void) {
-        if isFetching { return }
+        if isFetching {
+            if let cached = lastKnownValidUsage {
+                completion(cached)
+            }
+            return
+        }
         isFetching = true
         
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -17,6 +23,7 @@ public class CodexService {
                 DispatchQueue.main.async {
                     var usage = CodexUsage.initial
                     usage.errorMessage = "Codex 미설치: 터미널에서 'npm i -g @openai/codex' 실행"
+                    usage.isChecking = false
                     completion(usage)
                 }
                 return
@@ -42,10 +49,19 @@ public class CodexService {
                 if !didComplete {
                     didComplete = true
                     process.terminate()
-                    DispatchQueue.main.async {
-                        var usage = CodexUsage.initial
-                        usage.errorMessage = "요청 시간 초과 (Timeout)"
-                        completion(usage)
+                    if var cached = self?.lastKnownValidUsage, cached.isConnected {
+                        cached.lastUpdated = Date()
+                        cached.isChecking = false
+                        DispatchQueue.main.async {
+                            completion(cached)
+                        }
+                    } else {
+                        DispatchQueue.main.async {
+                            var usage = CodexUsage.initial
+                            usage.errorMessage = "요청 시간 초과 (Timeout)"
+                            usage.isChecking = false
+                            completion(usage)
+                        }
                     }
                 }
             }
@@ -66,7 +82,12 @@ public class CodexService {
                                 outPipe.fileHandleForReading.readabilityHandler = nil
                                 process.terminate()
                                 
-                                let usage = self?.parseResponse(line) ?? CodexUsage.initial
+                                var usage = self?.parseResponse(line) ?? CodexUsage.initial
+                                if usage.isConnected {
+                                    usage.isChecking = false
+                                    self?.lastKnownValidUsage = usage
+                                    usage.saveCached()
+                                }
                                 DispatchQueue.main.async {
                                     completion(usage)
                                 }
@@ -92,10 +113,19 @@ public class CodexService {
                 timer.cancel()
                 if !didComplete {
                     didComplete = true
-                    DispatchQueue.main.async {
-                        var usage = CodexUsage.initial
-                        usage.errorMessage = error.localizedDescription
-                        completion(usage)
+                    if var cached = self?.lastKnownValidUsage, cached.isConnected {
+                        cached.lastUpdated = Date()
+                        cached.isChecking = false
+                        DispatchQueue.main.async {
+                            completion(cached)
+                        }
+                    } else {
+                        DispatchQueue.main.async {
+                            var usage = CodexUsage.initial
+                            usage.errorMessage = error.localizedDescription
+                            usage.isChecking = false
+                            completion(usage)
+                        }
                     }
                 }
             }

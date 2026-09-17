@@ -40,7 +40,7 @@ public struct ProviderCardView: View {
                 
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(isConnected ? Color.green : Color.red.opacity(0.8))
+                        .fill(isConnected ? Color.green : (errorMessage?.contains("확인 중") == true ? Color.yellow : Color.red.opacity(0.8)))
                         .frame(width: 6, height: 6)
                     
                     Text(planName)
@@ -49,10 +49,10 @@ public struct ProviderCardView: View {
                 }
             }
             
-            if let error = errorMessage {
+            if let error = errorMessage, !isConnected {
                 Text(error)
                     .font(.system(size: 11))
-                    .foregroundColor(.red.opacity(0.8))
+                    .foregroundColor(error.contains("확인 중") ? .secondary : .red.opacity(0.8))
             } else {
                 // Progress Bar & Remaining Percentage
                 VStack(alignment: .leading, spacing: 5) {

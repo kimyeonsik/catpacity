@@ -17,15 +17,35 @@ public class GeminiService {
         set { defaults.set(newValue, forKey: planTypeKey) }
     }
     
+    private var isFetching = false
+    public var lastKnownValidUsage: GeminiUsage? = GeminiUsage.loadCached()
+    
     public func fetchUsage(completion: @escaping (GeminiUsage) -> Void) {
+        if isFetching {
+            if let cached = lastKnownValidUsage {
+                completion(cached)
+            }
+            return
+        }
+        isFetching = true
+        
+        let completionWrapper: (GeminiUsage) -> Void = { [weak self] usage in
+            self?.isFetching = false
+            if usage.isConnected {
+                self?.lastKnownValidUsage = usage
+                usage.saveCached()
+            }
+            completion(usage)
+        }
+        
         let key = self.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         
         if !key.isEmpty {
-            fetchWithApiKey(key: key, completion: completion)
+            fetchWithApiKey(key: key, completion: completionWrapper)
         } else if let agyBinary = findAgyBinary() {
-            fetchWithAgyCli(binary: agyBinary, completion: completion)
+            fetchWithAgyCli(binary: agyBinary, completion: completionWrapper)
         } else {
-            checkLocalGoogleCli(completion: completion)
+            checkLocalGoogleCli(completion: completionWrapper)
         }
     }
     
@@ -213,7 +233,17 @@ public class GeminiService {
         }
         
         if let email = activeAccount {
-            // Local login found but Antigravity CLI telemetry could not be fetched
+            // If we have a previously cached valid usage, preserve it so temporary blips don't cause '미연동'!
+            if var cached = self.lastKnownValidUsage, cached.isConnected {
+                cached.lastUpdated = Date()
+                cached.isChecking = false
+                DispatchQueue.main.async {
+                    completion(cached)
+                }
+                return
+            }
+            
+            // First time loading (no cache yet)
             DispatchQueue.main.async {
                 completion(GeminiUsage(
                     planName: "Gemini (\(email))",
@@ -225,7 +255,8 @@ public class GeminiService {
                     resetsAt: nil,
                     lastUpdated: Date(),
                     isConnected: false,
-                    errorMessage: "할당량 확인 불가 (Antigravity CLI 또는 API 키 필요)",
+                    errorMessage: "할당량 확인 중...",
+                    isChecking: true,
                     weeklyRemainingPercent: nil,
                     weeklyResetsAt: nil
                 ))
@@ -244,6 +275,7 @@ public class GeminiService {
                     lastUpdated: Date(),
                     isConnected: false,
                     errorMessage: "Gemini 미연동 (Antigravity 또는 API 키 필요)",
+                    isChecking: false,
                     weeklyRemainingPercent: nil,
                     weeklyResetsAt: nil
                 ))

@@ -169,12 +169,20 @@ public struct PopoverView: View {
     private var codexDetails: [String] {
         var items: [String] = []
         let codex = appState.overallUsage.codex
-        if let credits = codex.creditsBalance, credits != "0" {
-            items.append("잔여 크레딧: \(credits)")
-        }
-        for sub in codex.submodels {
-            let name = sub.limitName ?? sub.limitId
-            items.append("\(name): \(Int(sub.remainingPercent))% 남음")
+        if !codex.isConnected {
+            if codex.isChecking || codex.errorMessage?.contains("확인 중") == true {
+                items.append("Codex 연결 확인 중...")
+            } else {
+                items.append(codex.errorMessage ?? "Codex 미연동")
+            }
+        } else {
+            if let credits = codex.creditsBalance, credits != "0" {
+                items.append("잔여 크레딧: \(credits)")
+            }
+            for sub in codex.submodels {
+                let name = sub.limitName ?? sub.limitId
+                items.append("\(name): \(Int(sub.remainingPercent))% 남음")
+            }
         }
         return items
     }
@@ -183,7 +191,11 @@ public struct PopoverView: View {
         var items: [String] = []
         let gemini = appState.overallUsage.gemini
         if !gemini.isConnected {
-            items.append("Antigravity CLI 또는 AI Studio API 키 필요")
+            if gemini.isChecking || gemini.errorMessage?.contains("확인 중") == true {
+                items.append("Antigravity 쿼터 확인 중...")
+            } else {
+                items.append("Antigravity CLI 또는 AI Studio API 키 필요")
+            }
         } else {
             if let weekly = gemini.weeklyRemainingPercent {
                 items.append("주간 잔여 한도: \(Int(weekly))% 남음")
@@ -202,7 +214,11 @@ public struct PopoverView: View {
         var items: [String] = []
         let claude = appState.overallUsage.claude
         if !claude.isConnected {
-            items.append("구독 해지됨 또는 미로그인 (설정에서 API 키 연동 가능)")
+            if claude.isChecking || claude.errorMessage?.contains("확인 중") == true {
+                items.append("Claude 로그인 확인 중...")
+            } else {
+                items.append("구독 해지됨 또는 미로그인 (설정에서 API 키 연동 가능)")
+            }
         } else if claude.planName.contains("Max") {
             items.append("Claude Max 플랜 (우선 한도)")
         } else if claude.planName.contains("Pro") {
