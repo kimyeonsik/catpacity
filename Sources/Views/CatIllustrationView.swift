@@ -25,7 +25,7 @@ public struct CatIllustrationView: View {
                             .stroke(stage.accentColor.opacity(0.3), lineWidth: 1.5)
                     )
                 
-                HStack(spacing: 16) {
+                HStack(spacing: 12) {
                     // Chunky Retro Pixel Art Animated Cat
                     ZStack {
                         // Pixel art shadow
@@ -39,14 +39,16 @@ public struct CatIllustrationView: View {
                     
                     // Status & Quote
                     VStack(alignment: .leading, spacing: 5) {
-                        HStack(spacing: 6) {
+                        HStack(alignment: .center, spacing: 5) {
                             Text(stage.emoji)
                                 .font(.system(size: 15))
                             Text(stage.title)
                                 .font(.system(size: 13.5, weight: .bold))
                                 .foregroundColor(.primary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
                             
-                            Spacer()
+                            Spacer(minLength: 4)
                             
                             Text("잔여 \(Int(remainingPercent))%")
                                 .font(.system(size: 10.5, weight: .bold))
@@ -55,6 +57,8 @@ public struct CatIllustrationView: View {
                                 .background(stage.accentColor.opacity(0.2))
                                 .foregroundColor(stage.accentColor)
                                 .clipShape(Capsule())
+                                .fixedSize()
+                                .layoutPriority(1)
                         }
                         
                         Text("\"\(stage.quote)\"")
@@ -64,10 +68,10 @@ public struct CatIllustrationView: View {
                             .lineLimit(2)
                     }
                 }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 10)
             }
-            .frame(height: 80)
+            .frame(minHeight: 82)
         }
     }
 }

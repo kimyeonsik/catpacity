@@ -5,6 +5,16 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ---
 
+## [1.2.3] - 2026-09-18
+
+### 🎨 UI & Layout Improvements
+- **상단 고양이 상태 및 잔여 % 말줄임(...) 현상 완벽 해결**:
+  - 팝오버 창 가로 폭을 기존 320pt에서 360pt로 확장하여 충분한 텍스트 가독 공간 확보.
+  - 잔여 % 뱃지에 `.fixedSize()` 및 `.layoutPriority(1)`를 지정하여 두 자리/세 자리 퍼센트("잔여 80%", "잔여 100%")에서도 말줄임(`...`) 없이 온전히 표시.
+  - 고양이 상태 타이틀("완전 방전 액체 고양이" 등 긴 텍스트)에 `.minimumScaleFactor(0.85)` 및 최적화된 패딩/간격을 적용하여 잘림 없이 텍스트 전체 노출.
+
+---
+
 ## [1.2.2] - 2026-09-17
 
 ### ⚡️ Stability & State Management Improvements
