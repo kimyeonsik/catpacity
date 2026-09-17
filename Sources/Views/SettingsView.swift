@@ -44,30 +44,39 @@ public struct SettingsView: View {
             
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(alignment: .leading, spacing: 12) {
-                    // Section 1: Menu Bar Display Settings (Checkboxes)
+                    // Section 1: AI Service Selection (Menu Bar & Popover)
                     VStack(alignment: .leading, spacing: 8) {
-                Text("상단 메뉴바 표시 항목 (최대 3줄)")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.accentColor)
-                
-                Text("표시할 AI 서비스를 체크하세요 (체크한 개수에 따라 1~3줄로 자동 표시):")
-                    .font(.system(size: 10.5))
-                    .foregroundColor(.secondary)
-                
-                HStack(spacing: 16) {
-                    Toggle("OpenAI Codex", isOn: $showCodex)
-                        .font(.system(size: 11.5, weight: .medium))
-                        .onChange(of: showCodex) { _ in appState?.updateMenuBar() }
-                    
-                    Toggle("Google Gemini", isOn: $showGemini)
-                        .font(.system(size: 11.5, weight: .medium))
-                        .onChange(of: showGemini) { _ in appState?.updateMenuBar() }
-                    
-                    Toggle("Anthropic Claude", isOn: $showClaude)
-                        .font(.system(size: 11.5, weight: .medium))
-                        .onChange(of: showClaude) { _ in appState?.updateMenuBar() }
-                }
-                .padding(.vertical, 2)
+                        Text("사용할 AI 서비스 선택")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.accentColor)
+                        
+                        Text("체크된 서비스만 메뉴바 및 말풍선에 표시됩니다:")
+                            .font(.system(size: 10.5))
+                            .foregroundColor(.secondary)
+                        
+                        HStack(spacing: 16) {
+                            Toggle("OpenAI Codex", isOn: $showCodex)
+                                .font(.system(size: 11.5, weight: .medium))
+                                .onChange(of: showCodex) { _ in
+                                    appState?.updateMenuBar()
+                                    appState?.objectWillChange.send()
+                                }
+                            
+                            Toggle("Google Gemini", isOn: $showGemini)
+                                .font(.system(size: 11.5, weight: .medium))
+                                .onChange(of: showGemini) { _ in
+                                    appState?.updateMenuBar()
+                                    appState?.objectWillChange.send()
+                                }
+                            
+                            Toggle("Anthropic Claude", isOn: $showClaude)
+                                .font(.system(size: 11.5, weight: .medium))
+                                .onChange(of: showClaude) { _ in
+                                    appState?.updateMenuBar()
+                                    appState?.objectWillChange.send()
+                                }
+                        }
+                        .padding(.vertical, 2)
                 
                 Divider().opacity(0.4)
                 
@@ -168,7 +177,7 @@ public struct SettingsView: View {
                 
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Catpacity v1.2.4")
+                        Text("Catpacity v1.3.0")
                             .font(.system(size: 11, weight: .semibold))
                         if let msg = appState?.updateStatusMessage, !msg.isEmpty {
                             Text(msg)
@@ -183,19 +192,39 @@ public struct SettingsView: View {
                     
                     Spacer()
                     
-                    Button(action: {
-                        appState?.checkForUpdates(manual: true)
-                    }) {
-                        if appState?.isCheckingUpdate == true {
-                            ProgressView()
-                                .scaleEffect(0.6)
-                                .frame(width: 14, height: 14)
+                    if appState?.updateAvailable == true {
+                        if appState?.isSelfUpdating == true {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                    .frame(width: 14, height: 14)
+                                Text(appState?.selfUpdateProgressText ?? "업데이트 중...")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.secondary)
+                            }
                         } else {
-                            Text("업데이트 확인")
-                                .font(.system(size: 11))
+                            Button("지금 업데이트") {
+                                appState?.startSelfUpdate()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                            .font(.system(size: 11, weight: .bold))
                         }
+                    } else {
+                        Button(action: {
+                            appState?.checkForUpdates(manual: true)
+                        }) {
+                            if appState?.isCheckingUpdate == true {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                    .frame(width: 14, height: 14)
+                            } else {
+                                Text("업데이트 확인")
+                                    .font(.system(size: 11))
+                            }
+                        }
+                        .disabled(appState?.isCheckingUpdate == true)
                     }
-                    .disabled(appState?.isCheckingUpdate == true)
                     
                     Button("새로고침") {
                         appState?.refreshAll()

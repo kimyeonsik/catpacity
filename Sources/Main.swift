@@ -119,12 +119,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "🐾 Catpacity 열기", action: #selector(togglePopover(_:)), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
+        if appState.updateAvailable {
+            let updateTitle = "✨ 새 버전 업데이트 (\(appState.latestVersionTag))"
+            menu.addItem(NSMenuItem(title: updateTitle, action: #selector(triggerSelfUpdate), keyEquivalent: "u"))
+            menu.addItem(NSMenuItem.separator())
+        }
         menu.addItem(NSMenuItem(title: "🔄 지금 새로고침", action: #selector(manualRefresh), keyEquivalent: "r"))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "❌ 종료", action: #selector(quitApp), keyEquivalent: "q"))
         statusItem.menu = menu
         statusItem.button?.performClick(nil)
         statusItem.menu = nil
+    }
+    
+    @objc func triggerSelfUpdate() {
+        showPopover()
+        appState.startSelfUpdate()
     }
     
     @objc func manualRefresh() {

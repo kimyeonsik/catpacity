@@ -10,12 +10,33 @@ public class AppState: ObservableObject {
     @Published public var lastSyncTime: Date = Date()
     @Published public var currentAnimFrame: Int = 0
     
-    // Update Checker
+    // Update Checker & Self Update
     @Published public var updateAvailable: Bool = false
     @Published public var latestVersionTag: String = ""
     @Published public var latestReleaseUrl: String = ""
     @Published public var isCheckingUpdate: Bool = false
     @Published public var updateStatusMessage: String? = nil
+    @Published public var isSelfUpdating: Bool = false
+    @Published public var selfUpdateProgressText: String = ""
+    @Published public var selfUpdateError: String? = nil
+    
+    public var activeRemainingPercent: Double {
+        let showCodex = UserDefaults.standard.object(forKey: "catpacity_show_codex") as? Bool ?? true
+        let showGemini = UserDefaults.standard.object(forKey: "catpacity_show_gemini") as? Bool ?? true
+        let showClaude = UserDefaults.standard.object(forKey: "catpacity_show_claude") as? Bool ?? true
+        return overallUsage.minRemainingPercent(showCodex: showCodex, showGemini: showGemini, showClaude: showClaude)
+    }
+    
+    public var activeMaxUsedPercent: Double {
+        let showCodex = UserDefaults.standard.object(forKey: "catpacity_show_codex") as? Bool ?? true
+        let showGemini = UserDefaults.standard.object(forKey: "catpacity_show_gemini") as? Bool ?? true
+        let showClaude = UserDefaults.standard.object(forKey: "catpacity_show_claude") as? Bool ?? true
+        return overallUsage.maxUsedPercent(showCodex: showCodex, showGemini: showGemini, showClaude: showClaude)
+    }
+    
+    public var activeCatStage: CatStage {
+        return CatStage.from(remainingPercent: activeRemainingPercent)
+    }
     
     public weak var statusItem: NSStatusItem?
     private var refreshTimer: Timer?
@@ -167,7 +188,7 @@ public class AppState: ObservableObject {
     }
     
     private func tickAnimation() {
-        let stage = overallUsage.catStage
+        let stage = activeCatStage
         let frames = PixelArtFrames.getFrames(for: stage)
         guard !frames.isEmpty else { return }
         
@@ -199,7 +220,7 @@ public class AppState: ObservableObject {
             self.lastSyncTime = Date()
             self.updateLineCache()
             self.updateMenuBarText()
-            NotificationService.shared.checkAndNotify(usedPercent: self.overallUsage.maxUsedPercent)
+            NotificationService.shared.checkAndNotify(usedPercent: self.activeMaxUsedPercent)
         }
     }
     
@@ -210,7 +231,7 @@ public class AppState: ObservableObject {
             self.lastSyncTime = Date()
             self.updateLineCache()
             self.updateMenuBarText()
-            NotificationService.shared.checkAndNotify(usedPercent: self.overallUsage.maxUsedPercent)
+            NotificationService.shared.checkAndNotify(usedPercent: self.activeMaxUsedPercent)
         }
     }
     
@@ -221,7 +242,7 @@ public class AppState: ObservableObject {
             self.lastSyncTime = Date()
             self.updateLineCache()
             self.updateMenuBarText()
-            NotificationService.shared.checkAndNotify(usedPercent: self.overallUsage.maxUsedPercent)
+            NotificationService.shared.checkAndNotify(usedPercent: self.activeMaxUsedPercent)
         }
     }
     
@@ -239,10 +260,17 @@ public class AppState: ObservableObject {
         case "cat_twoline", "cat_dynamic":
             button.title = ""
         case "cat_percent":
-            button.title = " \(Int(overallUsage.minRemainingPercent))%"
+            button.title = " \(Int(activeRemainingPercent))%"
         case "cat_countdown":
-            let resetsAt = overallUsage.codex.resetsAt ?? overallUsage.gemini.resetsAt ?? overallUsage.claude.resetsAt
-            button.title = " " + TimeFormatter.formatCountdown(until: resetsAt)
+            var resets: [Date] = []
+            let showCodex = UserDefaults.standard.object(forKey: "catpacity_show_codex") as? Bool ?? true
+            let showGemini = UserDefaults.standard.object(forKey: "catpacity_show_gemini") as? Bool ?? true
+            let showClaude = UserDefaults.standard.object(forKey: "catpacity_show_claude") as? Bool ?? true
+            if showCodex, let r = overallUsage.codex.resetsAt { resets.append(r) }
+            if showGemini, let r = overallUsage.gemini.resetsAt { resets.append(r) }
+            if showClaude, let r = overallUsage.claude.resetsAt { resets.append(r) }
+            let nearestReset = resets.sorted().first
+            button.title = " " + TimeFormatter.formatCountdown(until: nearestReset)
         default:
             button.title = ""
         }
@@ -270,5 +298,23 @@ public class AppState: ObservableObject {
                 if manual { self.updateStatusMessage = "현재 최신 버전입니다 (v\(UpdateCheckerService.shared.currentVersion))." }
             }
         }
+    }
+    
+    public func startSelfUpdate() {
+        if isSelfUpdating { return }
+        isSelfUpdating = true
+        selfUpdateError = nil
+        selfUpdateProgressText = "업데이트 준비 중..."
+        
+        SelfUpdateService.shared.performUpdate(
+            tag: latestVersionTag,
+            onProgress: { [weak self] msg in
+                self?.selfUpdateProgressText = msg
+            },
+            onError: { [weak self] err in
+                self?.isSelfUpdating = false
+                self?.selfUpdateError = err
+            }
+        )
     }
 }

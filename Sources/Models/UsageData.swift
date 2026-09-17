@@ -182,16 +182,31 @@ public struct OverallUsage {
     public var gemini: GeminiUsage
     public var claude: ClaudeUsage
     
-    public var maxUsedPercent: Double {
+    public func maxUsedPercent(showCodex: Bool = true, showGemini: Bool = true, showClaude: Bool = true) -> Double {
         var values: [Double] = []
-        if codex.isConnected { values.append(codex.usedPercent) }
-        if gemini.isConnected { values.append(gemini.usedPercent) }
-        if claude.isConnected { values.append(claude.usedPercent) }
+        if showCodex && codex.isConnected { values.append(codex.usedPercent) }
+        if showGemini && gemini.isConnected { values.append(gemini.usedPercent) }
+        if showClaude && claude.isConnected { values.append(claude.usedPercent) }
         return values.max() ?? 0.0
     }
     
+    public func minRemainingPercent(showCodex: Bool = true, showGemini: Bool = true, showClaude: Bool = true) -> Double {
+        var values: [Double] = []
+        if showCodex && codex.isConnected { values.append(codex.remainingPercent) }
+        if showGemini && gemini.isConnected { values.append(gemini.remainingPercent) }
+        if showClaude && claude.isConnected { values.append(claude.remainingPercent) }
+        if values.isEmpty {
+            return 100.0
+        }
+        return values.min() ?? 100.0
+    }
+    
+    public var maxUsedPercent: Double {
+        return maxUsedPercent()
+    }
+    
     public var minRemainingPercent: Double {
-        return max(0.0, 100.0 - maxUsedPercent)
+        return minRemainingPercent()
     }
     
     public var catStage: CatStage {

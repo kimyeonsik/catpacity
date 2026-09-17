@@ -12,6 +12,10 @@ public struct PopoverView: View {
     @State private var showingSettings = false
     @State private var measuredCardsHeight: CGFloat = 0
     
+    @AppStorage("catpacity_show_codex") private var showCodex: Bool = true
+    @AppStorage("catpacity_show_gemini") private var showGemini: Bool = true
+    @AppStorage("catpacity_show_claude") private var showClaude: Bool = true
+    
     private var maxAllowedCardsHeight: CGFloat {
         let screenHeight = NSScreen.main?.visibleFrame.height ?? 850
         // Leave room for cat header (~120pt), footer (~50pt), margins (~60pt)
@@ -19,8 +23,8 @@ public struct PopoverView: View {
     }
     
     public var body: some View {
-        let activeRemaining = appState.overallUsage.minRemainingPercent
-        let activeStage = CatStage.from(remainingPercent: activeRemaining)
+        let activeRemaining = appState.activeRemainingPercent
+        let activeStage = appState.activeCatStage
         
         VStack(spacing: 12) {
             // Header: Dynamic Retro Animated Pixel Cat Graphic + Quote
@@ -32,22 +36,56 @@ public struct PopoverView: View {
             
             // Update Notification Banner (if newer version available on GitHub)
             if appState.updateAvailable {
-                HStack(spacing: 8) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.blue)
-                    Text("새 버전 \(appState.latestVersionTag) 출시!")
-                        .font(.system(size: 11, weight: .semibold))
-                    Spacer()
-                    Button("업데이트") {
-                        let urlStr = appState.latestReleaseUrl.isEmpty ? "https://github.com/kimyeonsik/catpacity/releases/latest" : appState.latestReleaseUrl
-                        if let url = URL(string: urlStr) {
-                            NSWorkspace.shared.open(url)
+                VStack(spacing: 6) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.blue)
+                        
+                        Text("새 버전 \(appState.latestVersionTag) 출시!")
+                            .font(.system(size: 11, weight: .semibold))
+                        
+                        Spacer()
+                        
+                        if appState.isSelfUpdating {
+                            ProgressView()
+                                .controlSize(.mini)
+                        } else {
+                            Button("지금 업데이트") {
+                                appState.startSelfUpdate()
+                            }
+                            .font(.system(size: 10, weight: .bold))
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.mini)
                         }
                     }
-                    .font(.system(size: 10, weight: .bold))
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.mini)
+                    
+                    if appState.isSelfUpdating {
+                        HStack {
+                            Text(appState.selfUpdateProgressText)
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                        }
+                    }
+                    
+                    if let err = appState.selfUpdateError {
+                        HStack {
+                            Text(err)
+                                .font(.system(size: 9.5))
+                                .foregroundColor(.red)
+                            Spacer()
+                            Button("브라우저에서 받기") {
+                                let urlStr = appState.latestReleaseUrl.isEmpty ? "https://github.com/kimyeonsik/catpacity/releases/latest" : appState.latestReleaseUrl
+                                if let url = URL(string: urlStr) {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }
+                            .font(.system(size: 9.5))
+                            .buttonStyle(.plain)
+                            .foregroundColor(.blue)
+                        }
+                    }
                 }
                 .padding(8)
                 .background(Color.blue.opacity(0.12))
@@ -57,63 +95,85 @@ public struct PopoverView: View {
             // Cards Container: Dynamically expands to content; only scrolls if screen height limit is reached
             ScrollView(.vertical, showsIndicators: measuredCardsHeight > maxAllowedCardsHeight) {
                 VStack(spacing: 10) {
-                    // Codex Card
-                    ProviderCardView(
-                        iconName: "cpu",
-                        providerTitle: "OpenAI Codex",
-                        planName: appState.overallUsage.codex.planType,
-                        usedPercent: appState.overallUsage.codex.usedPercent,
-                        resetsAt: appState.overallUsage.codex.resetsAt,
-                        isConnected: appState.overallUsage.codex.isConnected,
-                        errorMessage: appState.overallUsage.codex.errorMessage,
-                        extraDetails: codexDetails,
-                        onRefresh: {
-                            appState.refreshCodex()
-                        }
-                    )
-                    
-                    // Gemini Card
-                    let gemini = appState.overallUsage.gemini
-                    let geminiResetLabel: String = {
-                        if gemini.weeklyRemainingPercent != nil {
-                            if gemini.resetsAt != gemini.weeklyResetsAt {
-                                return "5시간 리셋:"
-                            } else {
-                                return "주간 리셋:"
+                    if showCodex {
+                        // Codex Card
+                        ProviderCardView(
+                            iconName: "cpu",
+                            providerTitle: "OpenAI Codex",
+                            planName: appState.overallUsage.codex.planType,
+                            usedPercent: appState.overallUsage.codex.usedPercent,
+                            resetsAt: appState.overallUsage.codex.resetsAt,
+                            isConnected: appState.overallUsage.codex.isConnected,
+                            errorMessage: appState.overallUsage.codex.errorMessage,
+                            extraDetails: codexDetails,
+                            onRefresh: {
+                                appState.refreshCodex()
                             }
-                        }
-                        return "리셋:"
-                    }()
+                        )
+                    }
                     
-                    ProviderCardView(
-                        iconName: "sparkles",
-                        providerTitle: "Google Gemini",
-                        planName: gemini.planName,
-                        usedPercent: gemini.usedPercent,
-                        resetsAt: gemini.resetsAt,
-                        isConnected: gemini.isConnected,
-                        errorMessage: gemini.errorMessage,
-                        extraDetails: geminiDetails,
-                        resetLabel: geminiResetLabel,
-                        onRefresh: {
-                            appState.refreshGemini()
-                        }
-                    )
+                    if showGemini {
+                        // Gemini Card
+                        let gemini = appState.overallUsage.gemini
+                        let geminiResetLabel: String = {
+                            if gemini.weeklyRemainingPercent != nil {
+                                if gemini.resetsAt != gemini.weeklyResetsAt {
+                                    return "5시간 리셋:"
+                                } else {
+                                    return "주간 리셋:"
+                                }
+                            }
+                            return "리셋:"
+                        }()
+                        
+                        ProviderCardView(
+                            iconName: "sparkles",
+                            providerTitle: "Google Gemini",
+                            planName: gemini.planName,
+                            usedPercent: gemini.usedPercent,
+                            resetsAt: gemini.resetsAt,
+                            isConnected: gemini.isConnected,
+                            errorMessage: gemini.errorMessage,
+                            extraDetails: geminiDetails,
+                            resetLabel: geminiResetLabel,
+                            onRefresh: {
+                                appState.refreshGemini()
+                            }
+                        )
+                    }
                     
-                    // Claude Card
-                    ProviderCardView(
-                        iconName: "brain.head.profile",
-                        providerTitle: "Anthropic Claude",
-                        planName: appState.overallUsage.claude.planName,
-                        usedPercent: appState.overallUsage.claude.usedPercent,
-                        resetsAt: appState.overallUsage.claude.resetsAt,
-                        isConnected: appState.overallUsage.claude.isConnected,
-                        errorMessage: appState.overallUsage.claude.errorMessage,
-                        extraDetails: claudeDetails,
-                        onRefresh: {
-                            appState.refreshClaude()
+                    if showClaude {
+                        // Claude Card
+                        ProviderCardView(
+                            iconName: "brain.head.profile",
+                            providerTitle: "Anthropic Claude",
+                            planName: appState.overallUsage.claude.planName,
+                            usedPercent: appState.overallUsage.claude.usedPercent,
+                            resetsAt: appState.overallUsage.claude.resetsAt,
+                            isConnected: appState.overallUsage.claude.isConnected,
+                            errorMessage: appState.overallUsage.claude.errorMessage,
+                            extraDetails: claudeDetails,
+                            onRefresh: {
+                                appState.refreshClaude()
+                            }
+                        )
+                    }
+                    
+                    if !showCodex && !showGemini && !showClaude {
+                        VStack(spacing: 8) {
+                            Image(systemName: "slash.circle")
+                                .font(.system(size: 24))
+                                .foregroundColor(.secondary)
+                            Text("표시할 AI 서비스가 없습니다.")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.primary)
+                            Text("하단 ⚙️ 설정에서 AI 서비스를 선택해주세요.")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
                         }
-                    )
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
+                    }
                 }
                 .padding(.horizontal, 2)
                 .background(
