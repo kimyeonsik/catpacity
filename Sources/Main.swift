@@ -22,6 +22,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Initialize App State
         appState = AppState()
         
+        // Setup Launch at Login (default on)
+        LaunchAtLoginHelper.setupInitialState()
+        
         // Setup Popover
         let popover = NSPopover()
         popover.behavior = .transient

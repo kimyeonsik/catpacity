@@ -5,6 +5,17 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ---
 
+## [1.2.0] - 2026-09-17
+
+### 🚀 New Features
+- **컴퓨터 시작 시 자동 실행 (Launch at Login)**:
+  - Mac 부팅 및 로그인 시 Catpacity가 메뉴바에 자동으로 상주하도록 지원.
+  - 최신 macOS 권장 프레임워크인 `ServiceManagement`(`SMAppService.mainApp`) 적용.
+  - **기본 활성화 (Default ON)** 적용: 첫 설치 및 실행 시 자동으로 시스템 로그인 항목에 등록.
+  - 설정(⚙️) 창에서 언제든지 켜고 끌 수 있는 직관적인 토글 체크박스 제공.
+
+---
+
 ## [1.1.1] - 2026-09-16
 
 ### 🐛 Bug Fixes & Improvements

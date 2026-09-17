@@ -16,6 +16,7 @@ public struct SettingsView: View {
     @AppStorage("catpacity_claude_api_key") private var claudeApiKey: String = ""
     
     // General
+    @State private var launchAtLogin: Bool = LaunchAtLoginHelper.isEnabled
     @AppStorage("catpacity_refresh_interval") private var refreshInterval: Int = 300 // 5 mins
     @AppStorage("catpacity_notify_on_high_usage") private var notifyHighUsage: Bool = true
     
@@ -122,6 +123,23 @@ public struct SettingsView: View {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.accentColor)
                 
+                Toggle("컴퓨터 켤 때 자동 실행 (Launch at Login)", isOn: Binding(
+                    get: { launchAtLogin },
+                    set: { newValue in
+                        launchAtLogin = newValue
+                        LaunchAtLoginHelper.isEnabled = newValue
+                    }
+                ))
+                .font(.system(size: 11.5, weight: .medium))
+                
+                Text("Mac 부팅 및 로그인 시 Catpacity가 메뉴바에 자동으로 상주합니다.")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 18)
+                    .padding(.bottom, 2)
+                
+                Divider().opacity(0.4)
+                
                 Picker("자동 새로고침 주기", selection: $refreshInterval) {
                     ForEach(refreshOptions, id: \.0) { item in
                         Text(item.1).tag(item.0)
@@ -144,7 +162,7 @@ public struct SettingsView: View {
                 
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Catpacity v1.1.1")
+                        Text("Catpacity v1.2.0")
                             .font(.system(size: 11, weight: .semibold))
                         if let msg = appState?.updateStatusMessage, !msg.isEmpty {
                             Text(msg)
