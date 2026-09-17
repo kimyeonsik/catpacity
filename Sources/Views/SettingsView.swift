@@ -42,8 +42,10 @@ public struct SettingsView: View {
             
             Divider()
             
-            // Section 1: Menu Bar Display Settings (Checkboxes)
-            VStack(alignment: .leading, spacing: 8) {
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(alignment: .leading, spacing: 12) {
+                    // Section 1: Menu Bar Display Settings (Checkboxes)
+                    VStack(alignment: .leading, spacing: 8) {
                 Text("상단 메뉴바 표시 항목 (최대 3줄)")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.accentColor)
@@ -156,13 +158,17 @@ public struct SettingsView: View {
             .padding(10)
             .background(Color.primary.opacity(0.03))
             .cornerRadius(8)
+                }
+                .padding(.trailing, 2)
+            }
             
+            // Footer (Pinned)
             VStack(spacing: 8) {
                 Divider()
                 
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Catpacity v1.2.0")
+                        Text("Catpacity v1.2.1")
                             .font(.system(size: 11, weight: .semibold))
                         if let msg = appState?.updateStatusMessage, !msg.isEmpty {
                             Text(msg)
@@ -199,7 +205,7 @@ public struct SettingsView: View {
             }
         }
         .padding(16)
-        .frame(width: 400, height: 490)
+        .frame(width: 440, height: 580)
         .onDisappear {
             appState?.updateMenuBar()
         }
