@@ -168,7 +168,7 @@ public struct SettingsView: View {
                 
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Catpacity v1.2.3")
+                        Text("Catpacity v1.2.4")
                             .font(.system(size: 11, weight: .semibold))
                         if let msg = appState?.updateStatusMessage, !msg.isEmpty {
                             Text(msg)

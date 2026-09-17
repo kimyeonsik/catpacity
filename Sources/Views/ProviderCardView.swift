@@ -9,7 +9,32 @@ public struct ProviderCardView: View {
     public let isConnected: Bool
     public let errorMessage: String?
     public let extraDetails: [String]
+    public let resetLabel: String
     public let onRefresh: () -> Void
+    
+    public init(
+        iconName: String,
+        providerTitle: String,
+        planName: String,
+        usedPercent: Double,
+        resetsAt: Date?,
+        isConnected: Bool,
+        errorMessage: String?,
+        extraDetails: [String],
+        resetLabel: String = "리셋:",
+        onRefresh: @escaping () -> Void
+    ) {
+        self.iconName = iconName
+        self.providerTitle = providerTitle
+        self.planName = planName
+        self.usedPercent = usedPercent
+        self.resetsAt = resetsAt
+        self.isConnected = isConnected
+        self.errorMessage = errorMessage
+        self.extraDetails = extraDetails
+        self.resetLabel = resetLabel
+        self.onRefresh = onRefresh
+    }
     
     public var remainingPercent: Double {
         return max(0.0, 100.0 - usedPercent)
@@ -96,7 +121,7 @@ public struct ProviderCardView: View {
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                     
-                    Text("리셋:")
+                    Text(resetLabel)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.secondary)
                     

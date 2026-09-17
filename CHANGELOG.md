@@ -5,6 +5,16 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ---
 
+## [1.2.4] - 2026-09-18
+
+### 🕒 Feature & UX Improvements
+- **Google Gemini 주간 잔여한도 리셋 시간 표시**:
+  - Gemini 카드 상세 영역에 주간 한도 잔여 퍼센트뿐만 아니라 **주간 리셋 카운트다운 및 정확한 리셋 시각(예: `5일 1시간 남음 (9월 23일 오후 12:19)`)**을 함께 표시.
+  - 주간 한도가 존재하는 환경(Antigravity 등)에서는 상단 기본 리셋 라벨을 `5시간 리셋:`으로 명확히 구분하여 5시간 롤링 한도와 주간 한도 리셋 주기를 한눈에 파악할 수 있도록 개선.
+  - ISO8601 날짜 파싱 시 밀리초(소수점 초)가 포함된 형식도 안전하게 파싱하도록 호환성 강화.
+
+---
+
 ## [1.2.3] - 2026-09-18
 
 ### 🎨 UI & Layout Improvements

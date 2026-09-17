@@ -73,15 +73,28 @@ public struct PopoverView: View {
                     )
                     
                     // Gemini Card
+                    let gemini = appState.overallUsage.gemini
+                    let geminiResetLabel: String = {
+                        if gemini.weeklyRemainingPercent != nil {
+                            if gemini.resetsAt != gemini.weeklyResetsAt {
+                                return "5시간 리셋:"
+                            } else {
+                                return "주간 리셋:"
+                            }
+                        }
+                        return "리셋:"
+                    }()
+                    
                     ProviderCardView(
                         iconName: "sparkles",
                         providerTitle: "Google Gemini",
-                        planName: appState.overallUsage.gemini.planName,
-                        usedPercent: appState.overallUsage.gemini.usedPercent,
-                        resetsAt: appState.overallUsage.gemini.resetsAt,
-                        isConnected: appState.overallUsage.gemini.isConnected,
-                        errorMessage: appState.overallUsage.gemini.errorMessage,
+                        planName: gemini.planName,
+                        usedPercent: gemini.usedPercent,
+                        resetsAt: gemini.resetsAt,
+                        isConnected: gemini.isConnected,
+                        errorMessage: gemini.errorMessage,
                         extraDetails: geminiDetails,
+                        resetLabel: geminiResetLabel,
                         onRefresh: {
                             appState.refreshGemini()
                         }
@@ -199,6 +212,11 @@ public struct PopoverView: View {
         } else {
             if let weekly = gemini.weeklyRemainingPercent {
                 items.append("주간 잔여 한도: \(Int(weekly))% 남음")
+            }
+            if let weeklyReset = gemini.weeklyResetsAt, gemini.resetsAt != weeklyReset {
+                let countdown = TimeFormatter.formatCountdown(until: weeklyReset)
+                let exact = TimeFormatter.formatExactTime(weeklyReset)
+                items.append("주간 리셋: \(countdown) (\(exact))")
             }
             if let remTokens = gemini.remainingTokens, let limTokens = gemini.limitTokens {
                 items.append("잔여 토큰: \(remTokens.formatted()) / \(limTokens.formatted()) TPM")

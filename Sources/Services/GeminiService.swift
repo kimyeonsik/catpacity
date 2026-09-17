@@ -137,6 +137,8 @@ public class GeminiService {
     
     private func parseAgyQuotaOutput(output: String, completion: @escaping (GeminiUsage) -> Void) {
         let isoFormatter = ISO8601DateFormatter()
+        let isoFracFormatter = ISO8601DateFormatter()
+        isoFracFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         
         var fiveHourRemaining: Double? = nil
         var fiveHourResetDate: Date? = nil
@@ -164,7 +166,7 @@ public class GeminiService {
             guard modelName.lowercased().contains("gemini") else { continue }
             
             let remainingPct = Double(pctString)
-            let parsedDate = isoFormatter.date(from: dateString)
+            let parsedDate = isoFormatter.date(from: dateString) ?? isoFracFormatter.date(from: dateString)
             
             if limitType.lowercased().contains("five hour") {
                 fiveHourRemaining = remainingPct
