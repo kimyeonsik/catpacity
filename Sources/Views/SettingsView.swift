@@ -11,6 +11,9 @@ public struct SettingsView: View {
     @AppStorage("catpacity_show_percent") private var showPercent: Bool = true
     @AppStorage("catpacity_show_reset_time") private var showResetTime: Bool = true
     
+    // Cat Status Target Customization
+    @AppStorage("catpacity_cat_status_target") private var catStatusTarget: String = "min"
+    
     // API Keys
     @AppStorage("catpacity_gemini_api_key") private var geminiApiKey: String = ""
     @AppStorage("catpacity_claude_api_key") private var claudeApiKey: String = ""
@@ -98,7 +101,41 @@ public struct SettingsView: View {
             .background(Color.primary.opacity(0.03))
             .cornerRadius(8)
             
-            // Section 2: Optional API Keys
+            // Section 2: Cat Status Target AI Service
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("고양이 표정 / 상태 기준 AI")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.accentColor)
+                    Spacer()
+                    if let label = appState?.activeTargetLabel, !label.isEmpty {
+                        Text("현재: \(label)")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                Text("메뉴바 아이콘 및 말풍선 상단 고양이의 피로도(애니메이션)를 결정할 기준을 선택합니다:")
+                    .font(.system(size: 10.5))
+                    .foregroundColor(.secondary)
+                
+                Picker("고양이 상태 기준", selection: $catStatusTarget) {
+                    ForEach(CatStatusTarget.allCases) { target in
+                        Text(target.displayName).tag(target.rawValue)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: catStatusTarget) { _ in
+                    appState?.updateLineCache()
+                    appState?.updateMenuBar()
+                    appState?.objectWillChange.send()
+                }
+            }
+            .padding(10)
+            .background(Color.primary.opacity(0.03))
+            .cornerRadius(8)
+            
+            // Section 3: Optional API Keys
             VStack(alignment: .leading, spacing: 8) {
                 Text("서비스 연동 설정 (선택사항)")
                     .font(.system(size: 12, weight: .bold))
@@ -128,7 +165,7 @@ public struct SettingsView: View {
             .background(Color.primary.opacity(0.03))
             .cornerRadius(8)
             
-            // Section 3: General Settings
+            // Section 4: General Settings
             VStack(alignment: .leading, spacing: 8) {
                 Text("일반 및 알림")
                     .font(.system(size: 12, weight: .bold))
@@ -177,7 +214,7 @@ public struct SettingsView: View {
                 
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Catpacity v1.3.0")
+                        Text("Catpacity v1.3.1")
                             .font(.system(size: 11, weight: .semibold))
                         if let msg = appState?.updateStatusMessage, !msg.isEmpty {
                             Text(msg)

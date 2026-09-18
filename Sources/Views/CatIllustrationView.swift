@@ -4,6 +4,14 @@ public struct CatIllustrationView: View {
     public let stage: CatStage
     public let remainingPercent: Double
     public let animFrame: Int
+    public let targetLabel: String
+    
+    public init(stage: CatStage, remainingPercent: Double, animFrame: Int, targetLabel: String = "") {
+        self.stage = stage
+        self.remainingPercent = remainingPercent
+        self.animFrame = animFrame
+        self.targetLabel = targetLabel
+    }
     
     public var body: some View {
         VStack(spacing: 8) {
@@ -38,15 +46,25 @@ public struct CatIllustrationView: View {
                     .frame(width: 88, height: 64)
                     
                     // Status & Quote
-                    VStack(alignment: .leading, spacing: 5) {
+                    VStack(alignment: .leading, spacing: 4) {
                         HStack(alignment: .center, spacing: 5) {
                             Text(stage.emoji)
                                 .font(.system(size: 15))
-                            Text(stage.title)
-                                .font(.system(size: 13.5, weight: .bold))
-                                .foregroundColor(.primary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
+                            
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(stage.title)
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.primary)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.85)
+                                
+                                if !targetLabel.isEmpty {
+                                    Text(targetLabel)
+                                        .font(.system(size: 9.5))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
                             
                             Spacer(minLength: 4)
                             
@@ -62,7 +80,7 @@ public struct CatIllustrationView: View {
                         }
                         
                         Text("\"\(stage.quote)\"")
-                            .font(.system(size: 11))
+                            .font(.system(size: 10.5))
                             .foregroundColor(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                             .lineLimit(2)

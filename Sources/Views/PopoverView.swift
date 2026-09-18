@@ -31,8 +31,10 @@ public struct PopoverView: View {
             CatIllustrationView(
                 stage: activeStage,
                 remainingPercent: activeRemaining,
-                animFrame: appState.currentAnimFrame
+                animFrame: appState.currentAnimFrame,
+                targetLabel: "기준: \(appState.activeTargetLabel)"
             )
+
             
             // Update Notification Banner (if newer version available on GitHub)
             if appState.updateAvailable {
@@ -249,6 +251,9 @@ public struct PopoverView: View {
                 items.append(codex.errorMessage ?? "Codex 미연동")
             }
         } else {
+            if !codex.ordinaryUsageAllowed {
+                items.append("⚠️ 이번 주기 일반 한도 소진 (리셋 대기)")
+            }
             if let credits = codex.creditsBalance, credits != "0" {
                 items.append("잔여 크레딧: \(credits)")
             }

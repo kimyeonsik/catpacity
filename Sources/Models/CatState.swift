@@ -76,3 +76,34 @@ public enum CatStage: Int, CaseIterable, Comparable {
         }
     }
 }
+
+public enum CatStatusTarget: String, CaseIterable, Identifiable {
+    case min = "min"          // 최저 잔여량 (가장 적게 남은 AI)
+    case codex = "codex"      // OpenAI Codex
+    case gemini = "gemini"    // Google Gemini
+    case claude = "claude"    // Anthropic Claude
+    case average = "average"  // 전체 평균 잔여량
+    
+    public var id: String { rawValue }
+    
+    public var displayName: String {
+        switch self {
+        case .min:     return "⚡️ 최저 잔여량 (가장 적게 남은 AI)"
+        case .codex:   return "🤖 OpenAI Codex"
+        case .gemini:  return "✨ Google Gemini"
+        case .claude:  return "🧠 Anthropic Claude"
+        case .average: return "📊 전체 평균 잔여량"
+        }
+    }
+    
+    public var shortName: String {
+        switch self {
+        case .min:     return "최저 잔여량"
+        case .codex:   return "Codex"
+        case .gemini:  return "Gemini"
+        case .claude:  return "Claude"
+        case .average: return "전체 평균"
+        }
+    }
+}
+

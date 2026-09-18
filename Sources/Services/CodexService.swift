@@ -198,12 +198,7 @@ public class CodexService {
         }
         
         let ordinaryUsageAllowed = result["ordinaryUsageAllowed"] as? Bool ?? true
-        if !ordinaryUsageAllowed {
-            var failed = CodexUsage.initial
-            failed.isConnected = false
-            failed.errorMessage = "Codex 계정 사용 제한됨 (한도 초과)"
-            return failed
-        }
+
         
         let rawPlan = rateLimits["planType"] as? String ?? "pro"
         let planType = "Codex " + rawPlan.capitalized

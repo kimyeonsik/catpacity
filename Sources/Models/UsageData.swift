@@ -201,6 +201,58 @@ public struct OverallUsage {
         return values.min() ?? 100.0
     }
     
+    public func remainingPercent(
+        for target: CatStatusTarget,
+        showCodex: Bool = true,
+        showGemini: Bool = true,
+        showClaude: Bool = true
+    ) -> (percent: Double, targetName: String) {
+        switch target {
+        case .codex:
+            if codex.isConnected {
+                return (codex.remainingPercent, "OpenAI Codex")
+            } else {
+                let fallback = minRemainingPercent(showCodex: false, showGemini: showGemini, showClaude: showClaude)
+                return (fallback, "최저 잔여량 (Codex 미연동)")
+            }
+        case .gemini:
+            if gemini.isConnected {
+                return (gemini.remainingPercent, "Google Gemini")
+            } else {
+                let fallback = minRemainingPercent(showCodex: showCodex, showGemini: false, showClaude: showClaude)
+                return (fallback, "최저 잔여량 (Gemini 미연동)")
+            }
+        case .claude:
+            if claude.isConnected {
+                return (claude.remainingPercent, "Anthropic Claude")
+            } else {
+                let fallback = minRemainingPercent(showCodex: showCodex, showGemini: showGemini, showClaude: false)
+                return (fallback, "최저 잔여량 (Claude 미연동)")
+            }
+        case .average:
+            var values: [Double] = []
+            if showCodex && codex.isConnected { values.append(codex.remainingPercent) }
+            if showGemini && gemini.isConnected { values.append(gemini.remainingPercent) }
+            if showClaude && claude.isConnected { values.append(claude.remainingPercent) }
+            if values.isEmpty {
+                return (100.0, "전체 평균")
+            }
+            let avg = values.reduce(0.0, +) / Double(values.count)
+            return (avg, "전체 평균")
+        case .min:
+            var items: [(name: String, rem: Double)] = []
+            if showCodex && codex.isConnected { items.append(("Codex", codex.remainingPercent)) }
+            if showGemini && gemini.isConnected { items.append(("Gemini", gemini.remainingPercent)) }
+            if showClaude && claude.isConnected { items.append(("Claude", claude.remainingPercent)) }
+            if let minItem = items.min(by: { $0.rem < $1.rem }) {
+                return (minItem.rem, "최저: \(minItem.name)")
+            } else {
+                return (100.0, "최저 잔여량")
+            }
+        }
+    }
+
+    
     public var maxUsedPercent: Double {
         return maxUsedPercent()
     }

@@ -5,6 +5,25 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ---
 
+## [1.3.1] - 2026-09-18
+
+### 🐱 New Features & Bug Fixes
+- **고양이 표정/상태 기준 AI 서비스 선택 기능 추가**:
+  - 메뉴바 아이콘 및 팝오버 상단 고양이의 피로도(도트 애니메이션 및 상태 문구)를 결정할 기준 AI 서비스를 사용자가 직접 선택할 수 있도록 설정(Preferences)에 옵션 추가.
+  - 지원 옵션:
+    - `⚡️ 최저 잔여량 (가장 적게 남은 AI - 기본값)`
+    - `🤖 OpenAI Codex`
+    - `✨ Google Gemini`
+    - `🧠 Anthropic Claude`
+    - `📊 전체 평균 잔여량`
+  - 팝오버 상단 고양이 헤더에 현재 표정의 판단 기준(예: `기준: OpenAI Codex`, `기준: 최저: Codex`) 서브타이틀 표시.
+- **OpenAI Codex 한도 소진(100% 사용) 시 연결 끊김 오판 버그 수정**:
+  - Codex 사용량이 100%에 도달하여 `ordinaryUsageAllowed: false`가 반환될 때 앱에서 이를 '연결 실패'로 잘못 처리하여 고양이 잔여량 계산에서 누락되던 버그 해결.
+  - 이제 한도 소진 시에도 정상 연결 상태(`0% 남음`)로 표시되며, 다른 AI가 남아있더라도 코덱스 기준(또는 최저 기준)에서 고양이가 정상적으로 방전 액체냥(`🫠`)으로 피로도를 표출하도록 개선.
+  - Codex 카드 세부 정보에 `⚠️ 이번 주기 일반 한도 소진 (리셋 대기)` 안내 문구 추가.
+
+---
+
 ## [1.3.0] - 2026-09-18
 
 ### 🚀 Major Features & UX Improvements

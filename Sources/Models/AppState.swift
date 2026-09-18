@@ -20,23 +20,39 @@ public class AppState: ObservableObject {
     @Published public var selfUpdateProgressText: String = ""
     @Published public var selfUpdateError: String? = nil
     
-    public var activeRemainingPercent: Double {
+    public var catStatusTarget: CatStatusTarget {
+        let raw = UserDefaults.standard.string(forKey: "catpacity_cat_status_target") ?? "min"
+        return CatStatusTarget(rawValue: raw) ?? .min
+    }
+    
+    public var activeRemainingInfo: (percent: Double, targetName: String) {
         let showCodex = UserDefaults.standard.object(forKey: "catpacity_show_codex") as? Bool ?? true
         let showGemini = UserDefaults.standard.object(forKey: "catpacity_show_gemini") as? Bool ?? true
         let showClaude = UserDefaults.standard.object(forKey: "catpacity_show_claude") as? Bool ?? true
-        return overallUsage.minRemainingPercent(showCodex: showCodex, showGemini: showGemini, showClaude: showClaude)
+        return overallUsage.remainingPercent(
+            for: catStatusTarget,
+            showCodex: showCodex,
+            showGemini: showGemini,
+            showClaude: showClaude
+        )
+    }
+    
+    public var activeRemainingPercent: Double {
+        return activeRemainingInfo.percent
+    }
+    
+    public var activeTargetLabel: String {
+        return activeRemainingInfo.targetName
     }
     
     public var activeMaxUsedPercent: Double {
-        let showCodex = UserDefaults.standard.object(forKey: "catpacity_show_codex") as? Bool ?? true
-        let showGemini = UserDefaults.standard.object(forKey: "catpacity_show_gemini") as? Bool ?? true
-        let showClaude = UserDefaults.standard.object(forKey: "catpacity_show_claude") as? Bool ?? true
-        return overallUsage.maxUsedPercent(showCodex: showCodex, showGemini: showGemini, showClaude: showClaude)
+        return max(0.0, 100.0 - activeRemainingPercent)
     }
     
     public var activeCatStage: CatStage {
         return CatStage.from(remainingPercent: activeRemainingPercent)
     }
+
     
     public weak var statusItem: NSStatusItem?
     private var refreshTimer: Timer?

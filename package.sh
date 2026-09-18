@@ -13,7 +13,7 @@ echo "🐱 최신 버전 Catpacity 빌드 중..."
 
 APP_PATH="$SCRIPT_DIR/Catpacity.app"
 APP_NAME="Catpacity"
-VERSION="1.3.0"
+VERSION=$(plutil -extract CFBundleShortVersionString raw -o - "$SCRIPT_DIR/Assets/Info.plist" 2>/dev/null || echo "1.3.1")
 
 echo "📦 1. macOS Installer Package (.pkg) 생성 중..."
 pkgbuild \
