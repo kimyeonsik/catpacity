@@ -14,6 +14,11 @@ public struct SettingsView: View {
     // Cat Status Target Customization
     @AppStorage("catpacity_cat_status_target") private var catStatusTarget: String = "min"
     
+    // Energy & Battery Saver
+    @AppStorage("catpacity_enable_menubar_animation") private var enableMenuBarAnimation: Bool = true
+    @AppStorage("catpacity_pause_on_battery") private var pauseOnBattery: Bool = true
+    @AppStorage("catpacity_animation_speed") private var animationSpeed: Double = 1.2
+    
     // API Keys
     @AppStorage("catpacity_gemini_api_key") private var geminiApiKey: String = ""
     @AppStorage("catpacity_claude_api_key") private var claudeApiKey: String = ""
@@ -22,6 +27,14 @@ public struct SettingsView: View {
     @State private var launchAtLogin: Bool = LaunchAtLoginHelper.isEnabled
     @AppStorage("catpacity_refresh_interval") private var refreshInterval: Int = 300 // 5 mins
     @AppStorage("catpacity_notify_on_high_usage") private var notifyHighUsage: Bool = true
+    
+    let speedOptions: [(Double, String)] = [
+        (1.5, "느긋하게 (초절전 - 1.5초)"),
+        (1.2, "여유롭게 (권장 - 1.2초)"),
+        (0.8, "보통 (0.8초)"),
+        (0.4, "빠르게 (0.4초)")
+    ]
+
     
     let refreshOptions = [
         (60, "1분마다"),
@@ -135,7 +148,69 @@ public struct SettingsView: View {
             .background(Color.primary.opacity(0.03))
             .cornerRadius(8)
             
-            // Section 3: Optional API Keys
+            // Section 3: Energy & Battery Saver
+            VStack(alignment: .leading, spacing: 8) {
+                Text("⚡️ 배터리 및 에너지 절약")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.accentColor)
+                
+                Toggle("상단 메뉴바 고양이 애니메이션 활성화", isOn: $enableMenuBarAnimation)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .onChange(of: enableMenuBarAnimation) { _ in
+                        appState?.updateMenuBar()
+                    }
+                
+                Text("체크 해제 시 정적 도트 아이콘을 유지하며 CPU 및 배터리를 전혀 소모하지 않습니다.")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 18)
+                    .padding(.bottom, 2)
+                
+                if enableMenuBarAnimation {
+                    Divider().opacity(0.4)
+                    
+                    Toggle("맥북 배터리 사용 시 애니메이션 일시 정지 (절전 모드)", isOn: $pauseOnBattery)
+                        .font(.system(size: 11.5))
+                        .onChange(of: pauseOnBattery) { _ in
+                            appState?.updateMenuBar()
+                        }
+                    
+                    Text("전원 어댑터 연결 시에만 움직이고, 배터리 사용 시 자동으로 정적 아이콘으로 전환됩니다.")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 18)
+                        .padding(.bottom, 2)
+                    
+                    Divider().opacity(0.4)
+                    
+                    Picker("애니메이션 속도", selection: $animationSpeed) {
+                        ForEach(speedOptions, id: \.0) { item in
+                            Text(item.1).tag(item.0)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .onChange(of: animationSpeed) { _ in
+                        appState?.startMenuBarAnimation()
+                    }
+                }
+                
+                Divider().opacity(0.4)
+                
+                HStack(spacing: 4) {
+                    Image(systemName: "leaf.fill")
+                        .foregroundColor(.green)
+                        .font(.system(size: 10))
+                    Text("화면이 꺼지거나 잠자기 상태가 되면 애니메이션과 백그라운드 조회가 자동 정지됩니다.")
+                        .font(.system(size: 9.5))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top, 2)
+            }
+            .padding(10)
+            .background(Color.primary.opacity(0.03))
+            .cornerRadius(8)
+            
+            // Section 4: Optional API Keys
             VStack(alignment: .leading, spacing: 8) {
                 Text("서비스 연동 설정 (선택사항)")
                     .font(.system(size: 12, weight: .bold))
@@ -165,7 +240,7 @@ public struct SettingsView: View {
             .background(Color.primary.opacity(0.03))
             .cornerRadius(8)
             
-            // Section 4: General Settings
+            // Section 5: General Settings
             VStack(alignment: .leading, spacing: 8) {
                 Text("일반 및 알림")
                     .font(.system(size: 12, weight: .bold))
@@ -214,7 +289,7 @@ public struct SettingsView: View {
                 
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Catpacity v1.3.1")
+                        Text("Catpacity v1.3.2")
                             .font(.system(size: 11, weight: .semibold))
                         if let msg = appState?.updateStatusMessage, !msg.isEmpty {
                             Text(msg)

@@ -6,6 +6,9 @@ public struct CatIllustrationView: View {
     public let animFrame: Int
     public let targetLabel: String
     
+    @State private var localFrame: Int = 0
+    private let popoverAnimTimer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
+    
     public init(stage: CatStage, remainingPercent: Double, animFrame: Int, targetLabel: String = "") {
         self.stage = stage
         self.remainingPercent = remainingPercent
@@ -14,6 +17,8 @@ public struct CatIllustrationView: View {
     }
     
     public var body: some View {
+        let displayFrame = animFrame > 0 ? animFrame : localFrame
+        
         VStack(spacing: 8) {
             ZStack {
                 // Retro arcade style container background
@@ -37,11 +42,11 @@ public struct CatIllustrationView: View {
                     // Chunky Retro Pixel Art Animated Cat
                     ZStack {
                         // Pixel art shadow
-                        PixelArtCanvas(stage: stage, frameIndex: animFrame)
+                        PixelArtCanvas(stage: stage, frameIndex: displayFrame)
                             .offset(x: 2, y: 2)
                             .opacity(0.15)
                         
-                        PixelArtCanvas(stage: stage, frameIndex: animFrame)
+                        PixelArtCanvas(stage: stage, frameIndex: displayFrame)
                     }
                     .frame(width: 88, height: 64)
                     
@@ -90,6 +95,9 @@ public struct CatIllustrationView: View {
                 .padding(.vertical, 10)
             }
             .frame(minHeight: 82)
+        }
+        .onReceive(popoverAnimTimer) { _ in
+            localFrame = (localFrame + 1) % 2
         }
     }
 }

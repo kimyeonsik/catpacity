@@ -61,11 +61,38 @@ public class AppState: ObservableObject {
     
     private var cachedAttrLines: [NSAttributedString] = []
     private var cachedTextWidth: CGFloat = 0.0
+    private var cachedCompositeFrames: [NSImage] = []
+    private var isScreenSleeping = false
+    
+    public var isAnimationEnabled: Bool {
+        return UserDefaults.standard.object(forKey: "catpacity_enable_menubar_animation") as? Bool ?? true
+    }
+    
+    public var pauseOnBatteryEnabled: Bool {
+        return UserDefaults.standard.object(forKey: "catpacity_pause_on_battery") as? Bool ?? true
+    }
+    
+    public var configuredAnimationInterval: TimeInterval {
+        let speed = UserDefaults.standard.double(forKey: "catpacity_animation_speed")
+        return speed > 0 ? speed : 1.2 // 1.2s default: smooth, relaxing & ultra energy efficient
+    }
+    
+    public var shouldRunAnimation: Bool {
+        guard !isScreenSleeping else { return false }
+        guard isAnimationEnabled else { return false }
+        if pauseOnBatteryEnabled && PowerHelper.isOnBatteryPower {
+            return false
+        }
+        return true
+    }
     
     public init() {
         if UserDefaults.standard.string(forKey: "catpacity_menubar_mode") == nil || UserDefaults.standard.string(forKey: "catpacity_menubar_mode") == "cat_only" {
             UserDefaults.standard.set("cat_twoline", forKey: "catpacity_menubar_mode")
         }
+        
+        setupSleepAndPowerObservers()
+        
         refreshAll()
         startPeriodicRefresh()
         startMenuBarAnimation()
@@ -76,25 +103,106 @@ public class AppState: ObservableObject {
         }
     }
     
+    private func setupSleepAndPowerObservers() {
+        // Completely suspend animations and background CLI calls when screen is off
+        let wsCenter = NSWorkspace.shared.notificationCenter
+        wsCenter.addObserver(self, selector: #selector(handleScreenSleep), name: NSWorkspace.screensDidSleepNotification, object: nil)
+        wsCenter.addObserver(self, selector: #selector(handleScreenWake), name: NSWorkspace.screensDidWakeNotification, object: nil)
+        wsCenter.addObserver(self, selector: #selector(handleSessionResignActive), name: NSWorkspace.sessionDidResignActiveNotification, object: nil)
+        wsCenter.addObserver(self, selector: #selector(handleSessionBecomeActive), name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
+        
+        NotificationCenter.default.addObserver(self, selector: #selector(handlePowerStateChanged), name: Notification.Name.NSProcessInfoPowerStateDidChange, object: nil)
+    }
+    
+    @objc private func handleScreenSleep() {
+        isScreenSleeping = true
+        stopMenuBarAnimation()
+    }
+    
+    @objc private func handleScreenWake() {
+        isScreenSleeping = false
+        startMenuBarAnimation()
+        if Date().timeIntervalSince(lastSyncTime) > 300 {
+            refreshAll()
+        }
+    }
+    
+    @objc private func handleSessionResignActive() {
+        isScreenSleeping = true
+        stopMenuBarAnimation()
+    }
+    
+    @objc private func handleSessionBecomeActive() {
+        isScreenSleeping = false
+        startMenuBarAnimation()
+    }
+    
+    @objc private func handlePowerStateChanged() {
+        // When user unplugs or plugs in Mac, update animation state according to battery saver settings
+        startMenuBarAnimation()
+    }
+    
     public func startPeriodicRefresh() {
         refreshTimer?.invalidate()
         let interval = UserDefaults.standard.integer(forKey: "catpacity_refresh_interval")
         let seconds = interval > 0 ? TimeInterval(interval) : 300.0
         
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: seconds, repeats: true) { [weak self] _ in
-            self?.refreshAll()
+        let timer = Timer(timeInterval: seconds, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            // Do not wake CPU to query external processes when screen is asleep
+            guard !self.isScreenSleeping else { return }
+            self.refreshAll()
         }
+        timer.tolerance = seconds * 0.1
+        RunLoop.main.add(timer, forMode: .common)
+        refreshTimer = timer
     }
     
     public func startMenuBarAnimation() {
-        animationTimer?.invalidate()
+        stopMenuBarAnimation()
+        rebuildCompositeFrames()
         
-        // 350ms per frame gives an authentic, charming retro pixel-art cadence
-        animationTimer = Timer.scheduledTimer(withTimeInterval: 0.35, repeats: true) { [weak self] _ in
+        guard shouldRunAnimation else {
+            showStaticMenuFrame()
+            return
+        }
+        
+        let interval = configuredAnimationInterval
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             self.tickAnimation()
         }
+        timer.tolerance = interval * 0.2
+        RunLoop.main.add(timer, forMode: .common)
+        animationTimer = timer
+        
+        // Immediate first frame
+        tickAnimation()
     }
+    
+    public func stopMenuBarAnimation() {
+        animationTimer?.invalidate()
+        animationTimer = nil
+    }
+    
+    public func showStaticMenuFrame() {
+        guard let button = statusItem?.button else { return }
+        if cachedCompositeFrames.isEmpty {
+            rebuildCompositeFrames()
+        }
+        let mode = UserDefaults.standard.string(forKey: "catpacity_menubar_mode") ?? "cat_twoline"
+        if mode == "cat_twoline" || mode == "cat_dynamic" {
+            button.title = ""
+            if let first = cachedCompositeFrames.first {
+                button.image = first
+            }
+        } else {
+            let stageFrames = PixelArtFrames.getFrames(for: activeCatStage)
+            button.image = stageFrames.first
+            updateMenuBarText()
+        }
+    }
+
     
     public func updateLineCache() {
         let showCodex = UserDefaults.standard.object(forKey: "catpacity_show_codex") as? Bool ?? true
@@ -161,14 +269,26 @@ public class AppState: ObservableObject {
         
         cachedAttrLines = lines
         cachedTextWidth = lines.map { ceil($0.size().width) }.max() ?? 60.0
+        rebuildCompositeFrames()
     }
     
-    private func createDynamicMenuImage(catFrame: NSImage) -> NSImage {
-        if cachedAttrLines.isEmpty {
-            updateLineCache()
+    public func rebuildCompositeFrames() {
+        let stage = activeCatStage
+        let frames = PixelArtFrames.getFrames(for: stage)
+        guard !frames.isEmpty else {
+            cachedCompositeFrames = []
+            return
         }
+        
+        let mode = UserDefaults.standard.string(forKey: "catpacity_menubar_mode") ?? "cat_twoline"
+        if mode != "cat_twoline" && mode != "cat_dynamic" {
+            cachedCompositeFrames = frames
+            return
+        }
+        
         guard !cachedAttrLines.isEmpty else {
-            return catFrame
+            cachedCompositeFrames = frames
+            return
         }
         
         let catSize = NSSize(width: 22, height: 16)
@@ -187,7 +307,10 @@ public class AppState: ObservableObject {
             yPositions = [14.5, 7.5, 0.5]
         }
         
-        let composite = NSImage(size: NSSize(width: totalWidth, height: totalHeight), flipped: false) { rect in
+        var newFrames: [NSImage] = []
+        for catFrame in frames {
+            let composite = NSImage(size: NSSize(width: totalWidth, height: totalHeight))
+            composite.lockFocus()
             let catRect = NSRect(x: 0, y: (totalHeight - catSize.height) / 2, width: catSize.width, height: catSize.height)
             catFrame.draw(in: catRect)
             
@@ -197,28 +320,32 @@ public class AppState: ObservableObject {
                     line.draw(at: NSPoint(x: textX, y: yPositions[i]))
                 }
             }
-            return true
+            composite.unlockFocus()
+            composite.isTemplate = false
+            newFrames.append(composite)
         }
-        composite.isTemplate = false
-        return composite
+        cachedCompositeFrames = newFrames
     }
     
     private func tickAnimation() {
-        let stage = activeCatStage
-        let frames = PixelArtFrames.getFrames(for: stage)
-        guard !frames.isEmpty else { return }
+        if cachedCompositeFrames.isEmpty {
+            rebuildCompositeFrames()
+        }
+        guard !cachedCompositeFrames.isEmpty else { return }
         
-        currentAnimFrame = (currentAnimFrame + 1) % frames.count
+        currentAnimFrame = (currentAnimFrame + 1) % cachedCompositeFrames.count
         
         guard let button = statusItem?.button else { return }
         let mode = UserDefaults.standard.string(forKey: "catpacity_menubar_mode") ?? "cat_twoline"
-        let catFrame = frames[currentAnimFrame]
         
         if mode == "cat_twoline" || mode == "cat_dynamic" {
             button.title = ""
-            button.image = createDynamicMenuImage(catFrame: catFrame)
+            button.image = cachedCompositeFrames[currentAnimFrame]
         } else {
-            button.image = catFrame
+            let stageFrames = PixelArtFrames.getFrames(for: activeCatStage)
+            if !stageFrames.isEmpty {
+                button.image = stageFrames[currentAnimFrame % stageFrames.count]
+            }
             updateMenuBarText()
         }
     }
@@ -264,9 +391,19 @@ public class AppState: ObservableObject {
     
     public func updateMenuBar() {
         updateLineCache()
-        tickAnimation()
+        if shouldRunAnimation {
+            if animationTimer == nil {
+                startMenuBarAnimation()
+            } else {
+                tickAnimation()
+            }
+        } else {
+            stopMenuBarAnimation()
+            showStaticMenuFrame()
+        }
         updateMenuBarText()
     }
+
     
     public func updateMenuBarText() {
         guard let button = statusItem?.button else { return }
