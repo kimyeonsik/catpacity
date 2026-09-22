@@ -300,7 +300,7 @@ public class AppState: ObservableObject {
             return
         }
         
-        let catSize = NSSize(width: 28, height: 18)
+        let catSize = NSSize(width: 20, height: 18)
         let totalWidth = catSize.width + 6 + cachedTextWidth
         let totalHeight: CGFloat = 22
         let lines = cachedAttrLines

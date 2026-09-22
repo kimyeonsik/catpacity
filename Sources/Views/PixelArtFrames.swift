@@ -42,32 +42,32 @@ public class PixelArtFrames {
                     )
                     
                     switch char {
-                    case "B", "-", "x":
-                        // Crisp solid black outline/features (becomes 100% white in dark mode, black in light mode)
+                    case "B":
+                        // Solid outline & facial features (pure white in dark mode, pure black in light mode)
                         ctx.setFillColor(NSColor.black.cgColor)
                         ctx.fill(pixelRect)
-                    case "C":
-                        // Body fur texture (soft 65% opacity)
-                        ctx.setFillColor(NSColor.black.withAlphaComponent(0.65).cgColor)
-                        ctx.fill(pixelRect)
-                    case "H":
-                        // Inner ear & belly highlight (delicate 35% opacity)
-                        ctx.setFillColor(NSColor.black.withAlphaComponent(0.35).cgColor)
-                        ctx.fill(pixelRect)
-                    case "P":
-                        // Pink accents (30% opacity)
-                        ctx.setFillColor(NSColor.black.withAlphaComponent(0.30).cgColor)
-                        ctx.fill(pixelRect)
-                    case "W":
-                        // Sparkles & catchlights (90% opacity)
-                        ctx.setFillColor(NSColor.black.withAlphaComponent(0.90).cgColor)
-                        ctx.fill(pixelRect)
-                    case "Z", "z":
-                        // Sleep Z / effect (75% opacity)
+                    case "S":
+                        // Dark stripes / pattern (75% opacity)
                         ctx.setFillColor(NSColor.black.withAlphaComponent(0.75).cgColor)
                         ctx.fill(pixelRect)
+                    case "C":
+                        // Main body coat (60% opacity)
+                        ctx.setFillColor(NSColor.black.withAlphaComponent(0.60).cgColor)
+                        ctx.fill(pixelRect)
+                    case "P":
+                        // Inner ear & tongue accent (35% opacity)
+                        ctx.setFillColor(NSColor.black.withAlphaComponent(0.35).cgColor)
+                        ctx.fill(pixelRect)
+                    case "W":
+                        // White chest bib highlight (25% opacity)
+                        ctx.setFillColor(NSColor.black.withAlphaComponent(0.25).cgColor)
+                        ctx.fill(pixelRect)
+                    case "Z", "z":
+                        // Sleep Zzz (80% opacity)
+                        ctx.setFillColor(NSColor.black.withAlphaComponent(0.80).cgColor)
+                        ctx.fill(pixelRect)
                     default:
-                        // Transparent cutout: "." background, "E" eyes
+                        // Transparent cutout background
                         break
                     }
                 }
@@ -93,223 +93,223 @@ public class PixelArtFrames {
         }
     }
     
-    // MARK: - Stage 1: Energetic (28x18) - Delicate upright cat, perky ears, wagging tail, sparkle
+    // MARK: - Stage 1: Energetic (20x18) - Golden Ginger Tabby (Reference Cat 1)
     private static let energeticGrids: [[String]] = [
         [
-            "............................",
-            "...BB.........BB............",
-            "..BCCB.......BCCB....WW.....",
-            "..BCHCB.....BCHCB...WWWW....",
-            ".BCHHCB.....BCHHCB...WW.....",
-            ".BCCCCCBBBBBCCCCCB..........",
-            ".BCCCCCCCCCCCCCCCB.......BB.",
-            ".BCCEECCCCCCCEECCB......BCCB",
-            ".BCCWECCCCCCCEWCCB.....BCCCB",
-            ".BCCEECCCCCCCEECCB....BCCCCB",
-            ".BCPPCCCCPCCCCPPCB...BCCCCCB",
-            ".BCCCCCCB.BCCCCCCB...BCCCCB.",
-            "..BCCCCCCCCCCCCCB...BCCCCB..",
-            "...BCCCCCCCCCCCBBBBBCCCCB...",
-            "...BCCCCCCCCCCCCCCCCCCCB....",
-            "...BCCCCBCCCCBCCCCCCCCCB....",
-            "...BCCCCBCCCCBCCCCCCCCCB....",
-            "....BBBB..BBBB..BBBBBBB....."
+            ".....B.....B........",
+            "....BPB...BPB.......",
+            "....BPPBBBPPB.......",
+            "...BCCCCSCCCCB......",
+            "...BCBBCCCBBCB......",
+            "...BCCCCBCCCCB...BB.",
+            "..BCCCCBCBCCCCB.BSCB",
+            "..BSCWCCCCCWCSBBCSB.",
+            ".BCCCCWCCCWCCCCBSB..",
+            ".BCCCCWWWWWCCCCBCB..",
+            ".BCCCCCWWWCCCCCBCB..",
+            ".BCCCCCWWWCCCCCBSB..",
+            ".BSSSCCWWWCCSSSBCB..",
+            ".BSCCBCCWCCBCCSBSB..",
+            ".BCCCBCBCBCBCCCBB...",
+            "..BCCBCBCBCBCCB.....",
+            "...BBB.BBB.BBB......",
+            ".....BBB.BBB........"
         ],
         [
-            "............................",
-            "...BB.........BB............",
-            "..BCCB.......BCCB...........",
-            "..BCHCB.....BCHCB....WW.....",
-            ".BCHHCB.....BCHHCB..WWWW....",
-            ".BCCCCCBBBBBCCCCCB...WW.....",
-            ".BCCCCCCCCCCCCCCCB......BBB.",
-            ".BCCEECCCCCCCEECCB.....BCCCB",
-            ".BCCWECCCCCCCEWCCB....BCCCCB",
-            ".BCCEECCCCCCCEECCB...BCCCCB.",
-            ".BCPPCCCCPCCCCPPCB..BCCCCB..",
-            ".BCCCCCCB.BCCCCCCB.BCCCCB...",
-            "..BCCCCCCCCCCCCCBBCCCCB.....",
-            "...BCCCCCCCCCCCBBCCCCB......",
-            "...BCCCCCCCCCCCCCCCCB.......",
-            "...BCCCCBCCCCBCCCCB.........",
-            "...BCCCCBCCCCBCCCCB.........",
-            "....BBBB..BBBB..BB.........."
+            ".....B.....B........",
+            "....BPB...BPB.......",
+            "....BPPBBBPPB....BB.",
+            "...BCCCCSCCCCB..BCCB",
+            "...BCBBCCCBBCB..BCCB",
+            "...BCCCCBCCCCB.BCCB.",
+            "..BCCCCBCBCCCCBBCB..",
+            "..BSCWCCCCCWCSBBCB..",
+            ".BCCCCWCCCWCCCCBCB..",
+            ".BCCCCWWWWWCCCCBSB..",
+            ".BCCCCCWWWCCCCCBCB..",
+            ".BCCCCCWWWCCCCCBSB..",
+            ".BSSSCCWWWCCSSSBCB..",
+            ".BSCCBCCWCCBCCSBSB..",
+            ".BCCCBCBCBCBCCCBB...",
+            "..BCCBCBCBCBCCB.....",
+            "...BBB.BBB.BBB......",
+            ".....BBB.BBB........"
         ]
     ]
     
-    // MARK: - Stage 2: Content (28x18) - Delicate loaf cat, tucked paws, peaceful crescent eyes
+    // MARK: - Stage 2: Content (20x18) - British Shorthair Blue/Gray (Reference Cat 2)
     private static let contentGrids: [[String]] = [
         [
-            "............................",
-            "............................",
-            "...BB.........BB............",
-            "..BCCB.......BCCB...........",
-            "..BCHCB.....BCHCB...........",
-            ".BCHHCB.....BCHHCB..........",
-            ".BCCCCCBBBBBCCCCCB..........",
-            ".BCCCCCCCCCCCCCCCB..........",
-            ".BCCCCCCCCCCCCCCCB..........",
-            ".BCC--CCCCCC--CCCB..........",
-            ".BCPPCCCCPCCCCPPCB...BBBB...",
-            ".BCCCCCCB.BCCCCCCBBBBCCCCB..",
-            "..BCCCCCCCCCCCCCCCCCCCCCCB..",
-            "..BCCCCCCCCCCCCCCCCCCCCCCCB.",
-            ".BCCCCCCCCCCCCCCCCCCCCCCCCB.",
-            ".BCCCHHCCCCCHHCCCCCCCCCCCCB.",
-            ".BCCCHHCCCCCHHCCCCCCCCCCCCB.",
-            "..BBBBBBBBBBBBBBBBBBBBBBBB.."
+            ".....B.....B........",
+            "....BPB...BPB.......",
+            "....BPPBBBPPB.......",
+            "...BCCCCSCCCCB......",
+            "...BCBBCCCBBCB......",
+            "...BCCCCBCCCCB...BB.",
+            "..BCCCCBCBCCCCB.BSCB",
+            "..BCCWCCCCCWCCBBCSB.",
+            ".BCCCCWCCCWCCCCBSB..",
+            ".BCCCCWWWWWCCCCBCB..",
+            ".BCCCCCWWWCCCCCBCB..",
+            ".BCCCCCWWWCCCCCBSB..",
+            ".BCCCCCWWWCCCCCBCB..",
+            ".BCCCBCCWCCBCCCBSB..",
+            ".BCCCBCBCBCBCCCBB...",
+            "..BCCBCBCBCBCCB.....",
+            "...BBB.BBB.BBB......",
+            ".....BBB.BBB........"
         ],
         [
-            "............................",
-            "............................",
-            "...BB.........BB............",
-            "..BCCB.......BCCB...........",
-            "..BCHCB.....BCHCB........BB.",
-            ".BCHHCB.....BCHHCB......BCCB",
-            ".BCCCCCBBBBBCCCCCB.....BCCCB",
-            ".BCCCCCCCCCCCCCCCB....BCCCCB",
-            ".BCCCCCCCCCCCCCCCB...BCCCCB.",
-            ".BCC--CCCCCC--CCCB..BCCCCB..",
-            ".BCPPCCCCPCCCCPPCB.BCCCCB...",
-            ".BCCCCCCB.BCCCCCCBBCCCCB....",
-            "..BCCCCCCCCCCCCCCCCCCCB.....",
-            "..BCCCCCCCCCCCCCCCCCCCCB....",
-            ".BCCCCCCCCCCCCCCCCCCCCCCB...",
-            ".BCCCHHCCCCCHHCCCCCCCCCCB...",
-            ".BCCCHHCCCCCHHCCCCCCCCCCB...",
-            "..BBBBBBBBBBBBBBBBBBBBBB...."
+            ".....B.....B........",
+            "....BPB...BPB.......",
+            "....BPPBBBPPB....BB.",
+            "...BCCCCSCCCCB..BCCB",
+            "...BCBBCCCBBCB..BCCB",
+            "...BCCCCBCCCCB.BCCB.",
+            "..BCCCCBCBCCCCBBCB..",
+            "..BCCWCCCCCWCCBBCB..",
+            ".BCCCCWCCCWCCCCBCB..",
+            ".BCCCCWWWWWCCCCBSB..",
+            ".BCCCCCWWWCCCCCBCB..",
+            ".BCCCCCWWWCCCCCBSB..",
+            ".BCCCCCWWWCCCCCBCB..",
+            ".BCCCBCCWCCBCCCBSB..",
+            ".BCCCBCBCBCBCCCBB...",
+            "..BCCBCBCBCBCCB.....",
+            "...BBB.BBB.BBB......",
+            ".....BBB.BBB........"
         ]
     ]
     
-    // MARK: - Stage 3: Tired (28x18) - Slumping cat, heavy sleepy eyes, drifting Zzz
+    // MARK: - Stage 3: Tired (20x18) - Drowsy White/Ivory Cat with Drifting Zzz (Reference Cat 3)
     private static let tiredGrids: [[String]] = [
         [
-            "............................",
-            "......................ZZZZ..",
-            "........................ZZ..",
-            ".......................ZZ...",
-            "...BB.........BB......ZZZZ..",
-            "..BCCB.......BCCB...........",
-            "..BCHCB.....BCHCB...........",
-            ".BCHHCB.....BCHHCB..........",
-            ".BCCCCCBBBBBCCCCCB..........",
-            ".BCCCCCCCCCCCCCCCB..........",
-            ".BCC--CCCCCC--CCCB..........",
-            ".BCPPCCCCPCCCCPPCB...BBBB...",
-            ".BCCCCCCB.BCCCCCCBBBBCCCCB..",
-            "..BCCCCCCCCCCCCCCCCCCCCCCB..",
-            "..BCCCCCCCCCCCCCCCCCCCCCCCB.",
-            ".BCCCCCCCCCCCCCCCCCCCCCCCCB.",
-            ".BCCCHHCCCCCHHCCCCCCCCCCCCB.",
-            "..BBBBBBBBBBBBBBBBBBBBBBBB.."
+            "...............ZZZZ.",
+            ".................ZZ.",
+            "................ZZ..",
+            ".....B.....B...ZZZZ.",
+            "....BPB...BPB.......",
+            "....BPPBBBPPB.......",
+            "...BCCCCSCCCCB......",
+            "...BCBBCCCBBCB......",
+            "...BCCCCBCCCCB...BB.",
+            "..BCCCCBCBCCCCB.BCCB",
+            "..BCCWCCCCCWCCBBCCB.",
+            ".BCCCCWCCCWCCCCBCB..",
+            ".BCCCCWWWWWCCCCBCB..",
+            ".BCCCCCWWWCCCCCBCB..",
+            ".BCCCCCWWWCCCCCBCB..",
+            ".BCCCBCCWCCBCCCBCB..",
+            ".BCCCBCBCBCBCCCBB...",
+            "...BBB.BBB.BBB......"
         ],
         [
-            "......................ZZZZ..",
-            "........................ZZ..",
-            ".......................ZZ...",
-            "......................ZZZZ..",
-            "...BB.........BB...zzz......",
-            "..BCCB.......BCCB....z......",
-            "..BCHCB.....BCHCB...z.......",
-            ".BCHHCB.....BCHHCB.zzz......",
-            ".BCCCCCBBBBBCCCCCB..........",
-            ".BCCCCCCCCCCCCCCCB..........",
-            ".BCC--CCCCCC--CCCB..........",
-            ".BCPPCCCCPCCCCPPCB...BBBB...",
-            ".BCCCCCCB.BCCCCCCBBBBCCCCB..",
-            "..BCCCCCCCCCCCCCCCCCCCCCCB..",
-            "..BCCCCCCCCCCCCCCCCCCCCCCCB.",
-            ".BCCCCCCCCCCCCCCCCCCCCCCCCB.",
-            ".BCCCHHCCCCCHHCCCCCCCCCCCCB.",
-            "..BBBBBBBBBBBBBBBBBBBBBBBB.."
+            "...............ZZZZ.",
+            ".................ZZ.",
+            ".....B.....B....ZZ..",
+            "....BPB...BPB..ZZZZ.",
+            "....BPPBBBPPB..zz...",
+            "...BCCCCSCCCCB..z...",
+            "...BCBBCCCBBCB.zz...",
+            "...BCCCCBCCCCB......",
+            "..BCCCCBCBCCCCB..BB.",
+            "..BCCWCCCCCWCCB.BCCB",
+            ".BCCCCWCCCWCCCCBBCCB",
+            ".BCCCCWWWWWCCCCBCB..",
+            ".BCCCCCWWWCCCCCBCB..",
+            ".BCCCCCWWWCCCCCBCB..",
+            ".BCCCBCCWCCBCCCBCB..",
+            ".BCCCBCBCBCBCCCBB...",
+            "..BCCBCBCBCBCCB.....",
+            "...BBB.BBB.BBB......"
         ]
     ]
     
-    // MARK: - Stage 4: Melting (28x18) - Flat melting mochi cat, blep tongue, sweat drop
+    // MARK: - Stage 4: Melting (20x18) - Calico Mochi with Blep Tongue (Reference Cat 4)
     private static let meltingGrids: [[String]] = [
         [
-            "............................",
-            "............................",
-            "............................",
-            "............................",
-            "...................WW.......",
-            "....BB.......BB...WWWW......",
-            "...BCCB.....BCCB...WW.......",
-            "..BCCCCBBBBBCCCCB..W........",
-            ".BCCCCCCCCCCCCCCCB..........",
-            ".BCCxxCCCCCCxxCCCB..........",
-            ".BCPPCCCCPCCCCPCCBBBBBB.....",
-            ".BCCCCCCPPPCCCCCCCCCCCCB....",
-            ".BCCCCCCCCCCCCCCCCCCCCCCB...",
-            "BCCCCCCCCCCCCCCCCCCCCCCCCB..",
-            "BCCCCCCCCCCCCCCCCCCCCCCCCB..",
-            "BCCCHHHCCCCCHHHCCCCCCCCCCB..",
-            ".BCCCCCCCCCCCCCCCCCCCCCCB...",
-            "..BBBBBBBBBBBBBBBBBBBBBB...."
+            "....................",
+            "....................",
+            "....................",
+            ".....B.....B........",
+            "....BPB...BPB.......",
+            "....BPPBBBPPB.......",
+            "...BCCCCSCCCCB......",
+            "...BCBBCCCBBCB......",
+            "...BCCCCBCCCCB...BB.",
+            "..BCCCCBCBCCCCB.BCCB",
+            "..BCCCBPPBCCCCBBCCB.",
+            ".BCCCCWPPWCCCCBCB...",
+            ".BCCCCWWWWWCCCCBCB..",
+            ".BCCCCCWWWCCCCCBCB..",
+            ".BCCCCCCCCCCCCBBCB..",
+            ".BCCCCCCCCCCCCCCBB..",
+            ".BCCCCCCCCCCCCCCCB..",
+            "..BBBBBBBBBBBBBBB..."
         ],
         [
-            "............................",
-            "............................",
-            "............................",
-            "............................",
-            "............................",
-            "....BB.......BB....WW.......",
-            "...BCCB.....BCCB..WWWW......",
-            "..BCCCCBBBBBCCCCB..WW.......",
-            ".BCCCCCCCCCCCCCCCB.W........",
-            ".BCC--CCCCCC--CCCB..........",
-            ".BCPPCCCCPCCCCPCCBBBBBB.....",
-            ".BCCCCCCPPPCCCCCCCCCCCCB....",
-            ".BCCCCCCCCCCCCCCCCCCCCCCB...",
-            "BCCCCCCCCCCCCCCCCCCCCCCCCB..",
-            "BCCCCCCCCCCCCCCCCCCCCCCCCB..",
-            "BCCCHHHCCCCCHHHCCCCCCCCCCB..",
-            ".BCCCCCCCCCCCCCCCCCCCCCCB...",
-            "..BBBBBBBBBBBBBBBBBBBBBB...."
+            "....................",
+            "....................",
+            "....................",
+            ".....B.....B........",
+            "....BPB...BPB.......",
+            "....BPPBBBPPB.......",
+            "...BCCCCSCCCCB......",
+            "...BCBBCCCBBCB......",
+            "...BCCCCBCCCCB..BB..",
+            "..BCCCCBCBCCCCB.BCCB",
+            "..BCCCBPPBCCCCBBCCB.",
+            ".BCCCCWPPWCCCCBCB...",
+            ".BCCCCWWWWWCCCCBCB..",
+            ".BCCCCCWWWCCCCCBCB..",
+            ".BCCCCCCCCCCCCBBCB..",
+            ".BCCCCCCCCCCCCCCBB..",
+            ".BCCCCCCCCCCCCCCCB..",
+            "..BBBBBBBBBBBBBBB..."
         ]
     ]
     
-    // MARK: - Stage 5: Liquid (28x18) - Fully melted flat puddle, peaceful snore
+    // MARK: - Stage 5: Liquid (20x18) - Siamese Flat Puddle Loaf (Reference Cat 6)
     private static let liquidGrids: [[String]] = [
         [
-            "............................",
-            "....................ZZZZ....",
-            "......................ZZ....",
-            ".....................ZZ.....",
-            "....................ZZZZ....",
-            "............................",
-            "............................",
-            "............................",
-            "............................",
-            "............................",
-            "...BB.........BB............",
-            "..BCCB.......BCCB...........",
-            ".BCCCCBBBBBCCCCB............",
-            ".BCC--CCCCCC--CB............",
-            ".BCPPCCCCPCCCCPCCBBBBBBBBB..",
-            "BCCCCCCCCPPPCCCCCCCCCCCCCCB.",
-            "BCCCCCCCCCCCCCCCCCCCCCCCCCB.",
-            ".BBBBBBBBBBBBBBBBBBBBBBBBB.."
+            "...............ZZZZ.",
+            ".................ZZ.",
+            "................ZZ..",
+            "...............ZZZZ.",
+            "....................",
+            "....................",
+            "....................",
+            ".....B.....B........",
+            "....BPB...BPB.......",
+            "....BPPBBBPPB.......",
+            "...BCCCCSCCCCB......",
+            "...BCBBCCCBBCB......",
+            "...BCCCCBCCCCB...BB.",
+            "..BCCCCBCBCCCCB.BCCB",
+            ".BCCCCCCCCCCCCBBCB..",
+            ".BCCCCCCCCCCCCCCBB..",
+            ".BCCCCCCCCCCCCCCCB..",
+            "..BBBBBBBBBBBBBBB..."
         ],
         [
-            "....................ZZZZ....",
-            "......................ZZ....",
-            ".....................ZZ.....",
-            "....................ZZZZ....",
-            "..................zzz.......",
-            "....................z.......",
-            "...................z........",
-            "..................zzz.......",
-            "............................",
-            "............................",
-            "...BB.........BB............",
-            "..BCCB.......BCCB...........",
-            ".BCCCCBBBBBCCCCB............",
-            ".BCCxxCCCCCCxxCB............",
-            ".BCPPCCCCPCCCCPCCBBBBBBBBB..",
-            "BCCCCCCCCPPPCCCCCCCCCCCCCCB.",
-            "BCCCCCCCCCCCCCCCCCCCCCCCCCB.",
-            ".BBBBBBBBBBBBBBBBBBBBBBBBB.."
+            "...............ZZZZ.",
+            ".................ZZ.",
+            "................ZZ..",
+            "...............ZZZZ.",
+            ".............zz.....",
+            "..............z.....",
+            ".............zz.....",
+            ".....B.....B........",
+            "....BPB...BPB.......",
+            "....BPPBBBPPB.......",
+            "...BCCCCSCCCCB......",
+            "...BCBBCCCBBCB......",
+            "...BCCCCBCCCCB...BB.",
+            "..BCCCCBCBCCCCB.BCCB",
+            ".BCCCCCCCCCCCCBBCB..",
+            ".BCCCCCCCCCCCCCCBB..",
+            ".BCCCCCCCCCCCCCCCB..",
+            "..BBBBBBBBBBBBBBB..."
         ]
     ]
 }

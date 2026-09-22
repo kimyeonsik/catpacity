@@ -3,6 +3,20 @@
 All notable changes to **Catpacity** will be documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.4] - 2026-09-22
+
+### 🐱 Chubby Mochi Cat Pixel Art Redesign
+- **레퍼런스 스타일 찹쌀떡 식빵냥이 도트 디자인 전면 반영**:
+  - 통통하고 둥근 찹쌀떡(모찌) 식빵 실루엣, 쫑긋한 귀, 여유로운 일자 눈망울, 앙증맞은 인버티드-T 코와 입, 가슴의 크림색 V-비브 패치, 앙증맞은 앞발 및 살랑거리는 줄무늬 꼬리 적용.
+  - 감정 단계별 레퍼런스 고양이 품종 컬러 팔레트 매칭:
+    - 쌩쌩함: 골든 치즈 태비 (Ginger Tabby, #2B233F / #FA9A50 / #D96B27 / #FFF5EE)
+    - 안정: 브리티시 쇼트헤어 블루 (British Blue, #1E243A / #6B8EA8 / #A5C4DB)
+    - 피곤: 크림 화이트 슬립냥이 & 두둥실 떠오르는 Zzz (Ivory Cream, #2E2838 / #F8ECE2 / #50B4F8)
+    - 녹아내림: 딸기 찹쌀떡 칼리코 메롱냥이 (Calico Blep, #2D1C2A / #FCEAE6 / #FF4278)
+    - 완전 방전: 샴고양이 액체 푸딩냥이 (Siamese Seal Point Puddle, #24161C / #F2DFCE / #8E4A35)
+
+---
+
 ## [1.3.3] - 2026-09-22
 
 ### 🎨 Pixel Art Redesign & Dynamic Menu Bar Visibility
