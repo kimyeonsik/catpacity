@@ -289,7 +289,7 @@ public struct SettingsView: View {
                 
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Catpacity v1.3.2")
+                        Text("Catpacity v\(UpdateCheckerService.shared.currentVersion)")
                             .font(.system(size: 11, weight: .semibold))
                         if let msg = appState?.updateStatusMessage, !msg.isEmpty {
                             Text(msg)

@@ -39,16 +39,23 @@ public struct CatIllustrationView: View {
                     )
                 
                 HStack(spacing: 12) {
-                    // Chunky Retro Pixel Art Animated Cat
+                    // Fine-pitch Retro Pixel Art Screen Frame
                     ZStack {
-                        // Pixel art shadow
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color(NSColor.windowBackgroundColor).opacity(0.65))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                            )
+                        
+                        // Pixel art drop shadow for depth
                         PixelArtCanvas(stage: stage, frameIndex: displayFrame)
-                            .offset(x: 2, y: 2)
-                            .opacity(0.15)
+                            .offset(x: 1.5, y: 1.5)
+                            .opacity(0.12)
                         
                         PixelArtCanvas(stage: stage, frameIndex: displayFrame)
                     }
-                    .frame(width: 88, height: 64)
+                    .frame(width: 96, height: 62)
                     
                     // Status & Quote
                     VStack(alignment: .leading, spacing: 4) {
@@ -102,7 +109,19 @@ public struct CatIllustrationView: View {
     }
 }
 
-// MARK: - Retro Pixel Art Canvas
+// MARK: - Fine-Pitch Pixel Art Palette
+struct CatPalette {
+    let outline: Color
+    let coat: Color
+    let highlight: Color
+    let pink: Color
+    let eyes: Color
+    let white: Color
+    let features: Color
+    let sleepZ: Color
+}
+
+// MARK: - Fine-Pitch Pixel Art Canvas
 struct PixelArtCanvas: View {
     let stage: CatStage
     let frameIndex: Int
@@ -114,14 +133,13 @@ struct PixelArtCanvas: View {
             let currentGrid = grids[frameIndex % grids.count]
             
             let gridHeight = currentGrid.count
-            let gridWidth = currentGrid.first?.count ?? 22
+            let gridWidth = currentGrid.first?.count ?? 28
             
             let pixelSize: CGFloat = min(size.width / CGFloat(gridWidth), size.height / CGFloat(gridHeight))
             let xOffset = (size.width - CGFloat(gridWidth) * pixelSize) / 2
             let yOffset = (size.height - CGFloat(gridHeight) * pixelSize) / 2
             
-            // Palette based on stage
-            let (bodyColor, darkColor, eyeColor, _, _) = paletteForStage(stage)
+            let palette = paletteForStage(stage)
             
             for (y, row) in currentGrid.enumerated() {
                 for (x, char) in row.enumerated() {
@@ -133,20 +151,22 @@ struct PixelArtCanvas: View {
                     )
                     
                     switch char {
-                    case "#":
-                        // Body pixels
-                        context.fill(Path(rect), with: .color(bodyColor))
-                        // Subtle pixel highlight on top edges
-                        if y > 0 && currentGrid[y - 1][currentGrid[y - 1].index(currentGrid[y - 1].startIndex, offsetBy: x)] == "." {
-                            let topHighlight = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height * 0.3)
-                            context.fill(Path(topHighlight), with: .color(.white.opacity(0.25)))
-                        }
-                    case "x", "-":
-                        context.fill(Path(rect), with: .color(eyeColor))
-                    case "^":
-                        context.fill(Path(rect), with: .color(darkColor))
-                    case "z", "Z":
-                        context.fill(Path(rect), with: .color(Color(red: 0.4, green: 0.75, blue: 1.0)))
+                    case "B":
+                        context.fill(Path(rect), with: .color(palette.outline))
+                    case "C":
+                        context.fill(Path(rect), with: .color(palette.coat))
+                    case "H":
+                        context.fill(Path(rect), with: .color(palette.highlight))
+                    case "P":
+                        context.fill(Path(rect), with: .color(palette.pink))
+                    case "E":
+                        context.fill(Path(rect), with: .color(palette.eyes))
+                    case "W":
+                        context.fill(Path(rect), with: .color(palette.white))
+                    case "-", "x":
+                        context.fill(Path(rect), with: .color(palette.features))
+                    case "Z", "z":
+                        context.fill(Path(rect), with: .color(palette.sleepZ))
                     default:
                         break
                     }
@@ -155,47 +175,62 @@ struct PixelArtCanvas: View {
         }
     }
     
-    private func paletteForStage(_ stage: CatStage) -> (Color, Color, Color, Color, Color) {
+    private func paletteForStage(_ stage: CatStage) -> CatPalette {
         switch stage {
         case .energetic:
-            return (
-                Color(red: 1.0, green: 0.65, blue: 0.25), // Energetic bright orange
-                Color(red: 0.85, green: 0.45, blue: 0.15),
-                Color.black,
-                Color(red: 1.0, green: 0.5, blue: 0.6),
-                Color.white
+            return CatPalette(
+                outline: Color(red: 0.16, green: 0.10, blue: 0.08), // Rich warm espresso
+                coat: Color(red: 1.00, green: 0.62, blue: 0.15),   // Lively golden ginger
+                highlight: Color(red: 1.00, green: 0.94, blue: 0.82), // Soft cream
+                pink: Color(red: 1.00, green: 0.48, blue: 0.64),   // Sweet strawberry pink
+                eyes: Color(red: 0.06, green: 0.72, blue: 0.42),   // Sparkling emerald green
+                white: Color.white,
+                features: Color(red: 0.16, green: 0.10, blue: 0.08),
+                sleepZ: Color(red: 0.35, green: 0.75, blue: 1.00)
             )
         case .content:
-            return (
-                Color(red: 0.95, green: 0.65, blue: 0.35), // Cozy warm ginger
-                Color(red: 0.8, green: 0.5, blue: 0.2),
-                Color(red: 0.2, green: 0.2, blue: 0.2),
-                Color(red: 0.95, green: 0.55, blue: 0.65),
-                Color(white: 0.95)
+            return CatPalette(
+                outline: Color(red: 0.20, green: 0.14, blue: 0.10), // Warm roast brown
+                coat: Color(red: 0.98, green: 0.72, blue: 0.32),   // Cozy honey caramel
+                highlight: Color(red: 1.00, green: 0.96, blue: 0.86), // Buttermilk cream
+                pink: Color(red: 1.00, green: 0.55, blue: 0.65),   // Peach blush
+                eyes: Color(red: 0.20, green: 0.14, blue: 0.10),
+                white: Color.white,
+                features: Color(red: 0.20, green: 0.14, blue: 0.10),
+                sleepZ: Color(red: 0.35, green: 0.75, blue: 1.00)
             )
         case .tired:
-            return (
-                Color(red: 0.85, green: 0.6, blue: 0.45), // Subdued muted amber
-                Color(red: 0.65, green: 0.45, blue: 0.3),
-                Color(red: 0.3, green: 0.2, blue: 0.2),
-                Color(red: 0.9, green: 0.6, blue: 0.65),
-                Color(white: 0.85)
+            return CatPalette(
+                outline: Color(red: 0.16, green: 0.20, blue: 0.26), // Deep charcoal slate
+                coat: Color(red: 0.64, green: 0.72, blue: 0.84),   // Silky lavender blue
+                highlight: Color(red: 0.92, green: 0.94, blue: 0.98), // Misty pearl
+                pink: Color(red: 0.95, green: 0.60, blue: 0.70),   // Dusty rose
+                eyes: Color(red: 0.16, green: 0.20, blue: 0.26),
+                white: Color.white,
+                features: Color(red: 0.16, green: 0.20, blue: 0.26),
+                sleepZ: Color(red: 0.20, green: 0.70, blue: 1.00)  // Sky cyan Z
             )
         case .melting:
-            return (
-                Color(red: 0.8, green: 0.5, blue: 0.45), // Drooping warm blush
-                Color(red: 0.6, green: 0.35, blue: 0.3),
-                Color(red: 0.35, green: 0.15, blue: 0.2),
-                Color(red: 0.85, green: 0.5, blue: 0.6),
-                Color(white: 0.8)
+            return CatPalette(
+                outline: Color(red: 0.28, green: 0.10, blue: 0.22), // Deep blackberry
+                coat: Color(red: 0.98, green: 0.58, blue: 0.66),   // Strawberry mochi pink
+                highlight: Color(red: 1.00, green: 0.92, blue: 0.95), // Marshmallow white
+                pink: Color(red: 1.00, green: 0.25, blue: 0.52),   // Vivid blep tongue!
+                eyes: Color(red: 0.28, green: 0.10, blue: 0.22),
+                white: Color(red: 0.30, green: 0.85, blue: 1.00),  // Glistening sweat drop
+                features: Color(red: 0.28, green: 0.10, blue: 0.22),
+                sleepZ: Color(red: 0.30, green: 0.85, blue: 1.00)
             )
         case .liquid:
-            return (
-                Color(red: 0.7, green: 0.45, blue: 0.55), // Exhausted liquid mauve/purple
-                Color(red: 0.5, green: 0.3, blue: 0.4),
-                Color(red: 0.25, green: 0.1, blue: 0.2),
-                Color(red: 0.8, green: 0.5, blue: 0.6),
-                Color(white: 0.75)
+            return CatPalette(
+                outline: Color(red: 0.12, green: 0.10, blue: 0.30), // Deep midnight ink
+                coat: Color(red: 0.56, green: 0.46, blue: 0.96),   // Luminescent jelly purple
+                highlight: Color(red: 0.82, green: 0.78, blue: 1.00), // Glowing lilac
+                pink: Color(red: 1.00, green: 0.38, blue: 0.68),   // Neon pink
+                eyes: Color(red: 0.12, green: 0.10, blue: 0.30),
+                white: Color(red: 0.20, green: 0.90, blue: 1.00),  // Glowing bubble
+                features: Color(red: 0.12, green: 0.10, blue: 0.30),
+                sleepZ: Color(red: 0.00, green: 0.92, blue: 1.00)  // Bright electric cyan Z
             )
         }
     }

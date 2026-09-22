@@ -248,19 +248,28 @@ public class AppState: ObservableObject {
             let str = NSMutableAttributedString()
             if !p.isConnected {
                 let statusText = p.isChecking ? "\(p.name): 확인 중..." : "\(p.name): 미연동"
-                str.append(NSAttributedString(string: statusText, attributes: [.font: normalFont, .foregroundColor: NSColor.secondaryLabelColor]))
+                str.append(NSAttributedString(string: statusText, attributes: [
+                    .font: normalFont,
+                    .foregroundColor: NSColor.black.withAlphaComponent(0.60)
+                ]))
             } else {
                 var prefix = "\(p.name):"
                 if showPercent {
                     prefix += " \(Int(p.remaining))%"
                 }
-                str.append(NSAttributedString(string: prefix, attributes: [.font: boldFont, .foregroundColor: NSColor.labelColor]))
+                str.append(NSAttributedString(string: prefix, attributes: [
+                    .font: boldFont,
+                    .foregroundColor: NSColor.black
+                ]))
                 
                 if showReset {
                     let r = TimeFormatter.formatShortReset(until: p.resetsAt)
                     if !r.isEmpty {
                         let resetText = showPercent ? " (\(r))" : " \(r)"
-                        str.append(NSAttributedString(string: resetText, attributes: [.font: normalFont, .foregroundColor: NSColor.secondaryLabelColor]))
+                        str.append(NSAttributedString(string: resetText, attributes: [
+                            .font: normalFont,
+                            .foregroundColor: NSColor.black.withAlphaComponent(0.60)
+                        ]))
                     }
                 }
             }
@@ -291,7 +300,7 @@ public class AppState: ObservableObject {
             return
         }
         
-        let catSize = NSSize(width: 22, height: 16)
+        let catSize = NSSize(width: 28, height: 18)
         let totalWidth = catSize.width + 6 + cachedTextWidth
         let totalHeight: CGFloat = 22
         let lines = cachedAttrLines
@@ -321,7 +330,7 @@ public class AppState: ObservableObject {
                 }
             }
             composite.unlockFocus()
-            composite.isTemplate = false
+            composite.isTemplate = true
             newFrames.append(composite)
         }
         cachedCompositeFrames = newFrames
