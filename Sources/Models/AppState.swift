@@ -440,6 +440,14 @@ public class AppState: ObservableObject {
             showStaticMenuFrame()
         }
         updateMenuBarText()
+        
+        if let button = statusItem?.button {
+            var tip = "Catpacity: AI 쿼터 모니터"
+            if overallUsage.codex.isConnected && overallUsage.codex.resetCreditsAvailableCount > 0 {
+                tip += " [🎟️ Codex 리셋권 \(overallUsage.codex.resetCreditsAvailableCount)장 보유]"
+            }
+            button.toolTip = tip
+        }
     }
 
     

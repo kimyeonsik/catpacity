@@ -13,6 +13,34 @@ public struct SubModelUsage: Identifiable, Codable {
     }
 }
 
+public struct RateLimitResetCredit: Identifiable, Codable {
+    public var id: String
+    public var resetType: String?
+    public var status: String?
+    public var grantedAt: Date?
+    public var expiresAt: Date?
+    public var title: String?
+    public var description: String?
+    
+    public init(
+        id: String,
+        resetType: String? = nil,
+        status: String? = nil,
+        grantedAt: Date? = nil,
+        expiresAt: Date? = nil,
+        title: String? = nil,
+        description: String? = nil
+    ) {
+        self.id = id
+        self.resetType = resetType
+        self.status = status
+        self.grantedAt = grantedAt
+        self.expiresAt = expiresAt
+        self.title = title
+        self.description = description
+    }
+}
+
 public struct CodexUsage: Codable {
     private static let cacheKey = "catpacity_codex_usage_cache"
     
@@ -42,9 +70,61 @@ public struct CodexUsage: Codable {
     public var isConnected: Bool
     public var errorMessage: String?
     public var isChecking: Bool = false
+    public var resetCreditsAvailableCount: Int = 0
+    public var resetCredits: [RateLimitResetCredit] = []
     
     public var remainingPercent: Double {
         return max(0.0, 100.0 - usedPercent)
+    }
+    
+    public init(
+        planType: String,
+        usedPercent: Double,
+        resetsAt: Date?,
+        windowDurationMins: Int?,
+        creditsBalance: String?,
+        hasCredits: Bool,
+        ordinaryUsageAllowed: Bool,
+        submodels: [SubModelUsage],
+        lastUpdated: Date,
+        isConnected: Bool,
+        errorMessage: String?,
+        isChecking: Bool = false,
+        resetCreditsAvailableCount: Int = 0,
+        resetCredits: [RateLimitResetCredit] = []
+    ) {
+        self.planType = planType
+        self.usedPercent = usedPercent
+        self.resetsAt = resetsAt
+        self.windowDurationMins = windowDurationMins
+        self.creditsBalance = creditsBalance
+        self.hasCredits = hasCredits
+        self.ordinaryUsageAllowed = ordinaryUsageAllowed
+        self.submodels = submodels
+        self.lastUpdated = lastUpdated
+        self.isConnected = isConnected
+        self.errorMessage = errorMessage
+        self.isChecking = isChecking
+        self.resetCreditsAvailableCount = resetCreditsAvailableCount
+        self.resetCredits = resetCredits
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        planType = try container.decode(String.self, forKey: .planType)
+        usedPercent = try container.decode(Double.self, forKey: .usedPercent)
+        resetsAt = try container.decodeIfPresent(Date.self, forKey: .resetsAt)
+        windowDurationMins = try container.decodeIfPresent(Int.self, forKey: .windowDurationMins)
+        creditsBalance = try container.decodeIfPresent(String.self, forKey: .creditsBalance)
+        hasCredits = try container.decode(Bool.self, forKey: .hasCredits)
+        ordinaryUsageAllowed = try container.decode(Bool.self, forKey: .ordinaryUsageAllowed)
+        submodels = try container.decode([SubModelUsage].self, forKey: .submodels)
+        lastUpdated = try container.decode(Date.self, forKey: .lastUpdated)
+        isConnected = try container.decode(Bool.self, forKey: .isConnected)
+        errorMessage = try container.decodeIfPresent(String.self, forKey: .errorMessage)
+        isChecking = try container.decodeIfPresent(Bool.self, forKey: .isChecking) ?? false
+        resetCreditsAvailableCount = try container.decodeIfPresent(Int.self, forKey: .resetCreditsAvailableCount) ?? 0
+        resetCredits = try container.decodeIfPresent([RateLimitResetCredit].self, forKey: .resetCredits) ?? []
     }
     
     public static var initial: CodexUsage {
@@ -65,7 +145,9 @@ public struct CodexUsage: Codable {
             lastUpdated: Date(),
             isConnected: false,
             errorMessage: "확인 중...",
-            isChecking: true
+            isChecking: true,
+            resetCreditsAvailableCount: 0,
+            resetCredits: []
         )
     }
 }

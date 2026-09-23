@@ -66,29 +66,15 @@ public struct CatIllustrationView: View {
                     .frame(width: 84, height: 68)
                     
                     // Status & Quote
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(alignment: .center, spacing: 5) {
-                            VStack(alignment: .leading, spacing: 1) {
-                                HStack(spacing: 4) {
-                                    Text(breed.emoji)
-                                        .font(.system(size: 13))
-                                    Text(stage.title)
-                                        .font(.system(size: 13, weight: .bold))
-                                        .foregroundColor(.primary)
-                                        .lineLimit(1)
-                                    Text("(\(breed.shortName))")
-                                        .font(.system(size: 11, weight: .medium))
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(1)
-                                }
-                                
-                                if !targetLabel.isEmpty {
-                                    Text(targetLabel)
-                                        .font(.system(size: 9.5))
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(1)
-                                }
-                            }
+                    VStack(alignment: .leading, spacing: 5) {
+                        // Row 1: Emoji + Stage Title + Remaining Percent Badge
+                        HStack(alignment: .center, spacing: 4) {
+                            Text(breed.emoji)
+                                .font(.system(size: 13))
+                            Text(stage.title)
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.primary)
+                                .fixedSize(horizontal: true, vertical: false)
                             
                             Spacer(minLength: 4)
                             
@@ -100,9 +86,28 @@ public struct CatIllustrationView: View {
                                 .foregroundColor(stage.accentColor)
                                 .clipShape(Capsule())
                                 .fixedSize()
-                                .layoutPriority(1)
                         }
                         
+                        // Row 2: Breed Badge + Target Label (never truncated!)
+                        HStack(spacing: 5) {
+                            Text(breed.shortName)
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(stage.accentColor)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1.5)
+                                .background(stage.accentColor.opacity(0.12))
+                                .cornerRadius(4)
+                                .fixedSize(horizontal: true, vertical: false)
+                            
+                            if !targetLabel.isEmpty {
+                                Text(targetLabel)
+                                    .font(.system(size: 9.5))
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        
+                        // Row 3: Quote
                         Text("\"\(stage.quote)\"")
                             .font(.system(size: 10.5))
                             .foregroundColor(.secondary)
@@ -113,7 +118,7 @@ public struct CatIllustrationView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
             }
-            .frame(minHeight: 82)
+            .frame(minHeight: 88)
         }
         .onReceive(popoverAnimTimer) { _ in
             localFrame = (localFrame + 1) % 2

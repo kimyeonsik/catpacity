@@ -7,10 +7,26 @@ private struct CardsContentHeightKey: PreferenceKey {
     }
 }
 
+private enum ResetAlertItem: Identifiable {
+    case confirm
+    case result(success: Bool, message: String)
+    
+    var id: String {
+        switch self {
+        case .confirm:
+            return "confirm"
+        case .result(let s, let m):
+            return "\(s)_\(m)"
+        }
+    }
+}
+
 public struct PopoverView: View {
     @ObservedObject var appState: AppState
     @State private var showingSettings = false
     @State private var measuredCardsHeight: CGFloat = 0
+    @State private var resetAlert: ResetAlertItem? = nil
+    @State private var isConsumingResetCredit = false
     
     @AppStorage("catpacity_show_codex") private var showCodex: Bool = true
     @AppStorage("catpacity_show_gemini") private var showGemini: Bool = true
@@ -100,15 +116,31 @@ public struct PopoverView: View {
                 VStack(spacing: 10) {
                     if showCodex {
                         // Codex Card
+                        let codex = appState.overallUsage.codex
+                        let resetAction: ProviderCardAction? = codex.isConnected && codex.resetCreditsAvailableCount > 0 ? ProviderCardAction(
+                            title: "🎟️ 리셋권 \(codex.resetCreditsAvailableCount)장 보유 중",
+                            subtitle: "사용 즉시 한도가 100%로 복구됩니다",
+                            buttonTitle: isConsumingResetCredit ? "리셋 중..." : "지금 리셋",
+                            icon: "arrow.counterclockwise.circle.fill",
+                            tintColor: .purple,
+                            isLoading: isConsumingResetCredit,
+                            action: {
+                                resetAlert = .confirm
+                            }
+                        ) : nil
+                        
                         ProviderCardView(
                             iconName: "cpu",
                             providerTitle: "OpenAI Codex",
-                            planName: appState.overallUsage.codex.planType,
-                            usedPercent: appState.overallUsage.codex.usedPercent,
-                            resetsAt: appState.overallUsage.codex.resetsAt,
-                            isConnected: appState.overallUsage.codex.isConnected,
-                            errorMessage: appState.overallUsage.codex.errorMessage,
+                            planName: codex.planType,
+                            usedPercent: codex.usedPercent,
+                            resetsAt: codex.resetsAt,
+                            isConnected: codex.isConnected,
+                            errorMessage: codex.errorMessage,
                             extraDetails: codexDetails,
+                            badgeText: codex.isConnected && codex.resetCreditsAvailableCount > 0 ? "🎟️ 리셋권 \(codex.resetCreditsAvailableCount)장" : nil,
+                            badgeColor: .purple,
+                            customAction: resetAction,
                             onRefresh: {
                                 appState.refreshCodex()
                             }
@@ -236,9 +268,36 @@ public struct PopoverView: View {
             .padding(.horizontal, 2)
         }
         .padding(14)
-        .frame(width: 360)
+        .frame(width: 375)
         .sheet(isPresented: $showingSettings) {
             SettingsView(appState: appState)
+        }
+        .alert(item: $resetAlert) { item in
+            switch item {
+            case .confirm:
+                return Alert(
+                    title: Text("🎟️ Codex 리셋권 사용"),
+                    message: Text("보유 중인 리셋권을 사용하여 Codex 한도를 100%로 즉시 복구하시겠습니까?"),
+                    primaryButton: .default(Text("리셋하기")) {
+                        isConsumingResetCredit = true
+                        CodexService.shared.consumeResetCredit { success, err in
+                            isConsumingResetCredit = false
+                            if success {
+                                resetAlert = .result(success: true, message: "🎉 Codex 한도가 100%로 성공적으로 복구되었습니다!")
+                            } else {
+                                resetAlert = .result(success: false, message: "❌ 리셋 처리 실패: \(err ?? "알 수 없는 오류")")
+                            }
+                        }
+                    },
+                    secondaryButton: .cancel(Text("취소"))
+                )
+            case .result(let success, let message):
+                return Alert(
+                    title: Text(success ? "리셋 완료" : "리셋 실패"),
+                    message: Text(message),
+                    dismissButton: .default(Text("확인"))
+                )
+            }
         }
     }
     
@@ -254,6 +313,16 @@ public struct PopoverView: View {
         } else {
             if !codex.ordinaryUsageAllowed {
                 items.append("⚠️ 이번 주기 일반 한도 소진 (리셋 대기)")
+            }
+            if codex.resetCreditsAvailableCount > 0 {
+                let title = codex.resetCredits.first?.title ?? "한도 100% 복구"
+                items.append("🎟️ 리셋권: \(codex.resetCreditsAvailableCount)장 보유 중 (\(title))")
+                if let exp = codex.resetCredits.first?.expiresAt {
+                    let formattedExp = TimeFormatter.formatExactTime(exp)
+                    items.append("   ↳ 유효기간: \(formattedExp)까지")
+                }
+            } else {
+                items.append("🎟️ 리셋권: 0장")
             }
             if let credits = codex.creditsBalance, credits != "0" {
                 items.append("잔여 크레딧: \(credits)")

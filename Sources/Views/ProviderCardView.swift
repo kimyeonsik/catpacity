@@ -1,5 +1,33 @@
 import SwiftUI
 
+public struct ProviderCardAction {
+    public let title: String
+    public let subtitle: String?
+    public let buttonTitle: String
+    public let icon: String?
+    public let tintColor: Color
+    public let isLoading: Bool
+    public let action: () -> Void
+    
+    public init(
+        title: String,
+        subtitle: String? = nil,
+        buttonTitle: String,
+        icon: String? = nil,
+        tintColor: Color = .purple,
+        isLoading: Bool = false,
+        action: @escaping () -> Void
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.buttonTitle = buttonTitle
+        self.icon = icon
+        self.tintColor = tintColor
+        self.isLoading = isLoading
+        self.action = action
+    }
+}
+
 public struct ProviderCardView: View {
     public let iconName: String
     public let providerTitle: String
@@ -10,6 +38,9 @@ public struct ProviderCardView: View {
     public let errorMessage: String?
     public let extraDetails: [String]
     public let resetLabel: String
+    public let badgeText: String?
+    public let badgeColor: Color
+    public let customAction: ProviderCardAction?
     public let onRefresh: () -> Void
     
     public init(
@@ -22,6 +53,9 @@ public struct ProviderCardView: View {
         errorMessage: String?,
         extraDetails: [String],
         resetLabel: String = "리셋:",
+        badgeText: String? = nil,
+        badgeColor: Color = .purple,
+        customAction: ProviderCardAction? = nil,
         onRefresh: @escaping () -> Void
     ) {
         self.iconName = iconName
@@ -33,6 +67,9 @@ public struct ProviderCardView: View {
         self.errorMessage = errorMessage
         self.extraDetails = extraDetails
         self.resetLabel = resetLabel
+        self.badgeText = badgeText
+        self.badgeColor = badgeColor
+        self.customAction = customAction
         self.onRefresh = onRefresh
     }
     
@@ -64,6 +101,18 @@ public struct ProviderCardView: View {
                 Spacer()
                 
                 HStack(spacing: 6) {
+                    if let badge = badgeText {
+                        Text(badge)
+                            .font(.system(size: 9.5, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(badgeColor)
+                            )
+                    }
+                    
                     Circle()
                         .fill(isConnected ? Color.green : (errorMessage?.contains("확인 중") == true ? Color.yellow : Color.red.opacity(0.8)))
                         .frame(width: 6, height: 6)
@@ -154,6 +203,48 @@ public struct ProviderCardView: View {
                                 .foregroundColor(.secondary)
                         }
                     }
+                }
+                
+                // Custom Action Banner (e.g. Codex Reset Ticket)
+                if let action = customAction {
+                    Divider()
+                        .opacity(0.4)
+                    
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(action.title)
+                                .font(.system(size: 10.5, weight: .bold))
+                                .foregroundColor(.primary)
+                            if let subtitle = action.subtitle {
+                                Text(subtitle)
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        Button(action: action.action) {
+                            HStack(spacing: 4) {
+                                if action.isLoading {
+                                    ProgressView()
+                                        .controlSize(.mini)
+                                } else if let icon = action.icon {
+                                    Image(systemName: icon)
+                                        .font(.system(size: 9.5))
+                                }
+                                Text(action.buttonTitle)
+                                    .font(.system(size: 10, weight: .bold))
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(action.tintColor)
+                        .controlSize(.mini)
+                        .disabled(action.isLoading)
+                    }
+                    .padding(8)
+                    .background(action.tintColor.opacity(0.08))
+                    .cornerRadius(8)
                 }
             }
         }

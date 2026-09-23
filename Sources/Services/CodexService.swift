@@ -237,6 +237,38 @@ public class CodexService {
             }
         }
         
+        var resetCreditsAvailableCount = 0
+        var resetCredits: [RateLimitResetCredit] = []
+        if let resetCreditsObj = result["rateLimitResetCredits"] as? [String: Any] {
+            resetCreditsAvailableCount = resetCreditsObj["availableCount"] as? Int ?? 0
+            if let arr = resetCreditsObj["credits"] as? [[String: Any]] {
+                for item in arr {
+                    let id = item["id"] as? String ?? UUID().uuidString
+                    let resetType = item["resetType"] as? String
+                    let status = item["status"] as? String
+                    let title = item["title"] as? String
+                    let desc = item["description"] as? String
+                    var grantedDate: Date? = nil
+                    if let ts = item["grantedAt"] as? TimeInterval {
+                        grantedDate = Date(timeIntervalSince1970: ts)
+                    }
+                    var expiresDate: Date? = nil
+                    if let ts = item["expiresAt"] as? TimeInterval {
+                        expiresDate = Date(timeIntervalSince1970: ts)
+                    }
+                    resetCredits.append(RateLimitResetCredit(
+                        id: id,
+                        resetType: resetType,
+                        status: status,
+                        grantedAt: grantedDate,
+                        expiresAt: expiresDate,
+                        title: title,
+                        description: desc
+                    ))
+                }
+            }
+        }
+        
         return CodexUsage(
             planType: planType,
             usedPercent: usedPercent,
@@ -248,7 +280,112 @@ public class CodexService {
             submodels: submodels,
             lastUpdated: Date(),
             isConnected: true,
-            errorMessage: nil
+            errorMessage: nil,
+            isChecking: false,
+            resetCreditsAvailableCount: resetCreditsAvailableCount,
+            resetCredits: resetCredits
         )
+    }
+    
+    public func consumeResetCredit(completion: @escaping (Bool, String?) -> Void) {
+        let codexBinary = findCodexBinary()
+        guard let binary = codexBinary, FileManager.default.fileExists(atPath: binary) else {
+            completion(false, "Codex 바이너리를 찾을 수 없습니다.")
+            return
+        }
+        
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: binary)
+            process.arguments = ["app-server"]
+            process.environment = EnvironmentHelper.makeProcessEnvironment()
+            
+            let inPipe = Pipe()
+            let outPipe = Pipe()
+            process.standardInput = inPipe
+            process.standardOutput = outPipe
+            process.standardError = Pipe()
+            
+            var receivedData = Data()
+            var didComplete = false
+            
+            let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
+            timer.schedule(deadline: .now() + 8.0)
+            timer.setEventHandler {
+                if !didComplete {
+                    didComplete = true
+                    process.terminate()
+                    DispatchQueue.main.async {
+                        completion(false, "요청 시간 초과")
+                    }
+                }
+            }
+            timer.resume()
+            
+            outPipe.fileHandleForReading.readabilityHandler = { handle in
+                let chunk = handle.availableData
+                if chunk.isEmpty { return }
+                receivedData.append(chunk)
+                
+                if let string = String(data: receivedData, encoding: .utf8) {
+                    let lines = string.components(separatedBy: "\n")
+                    for line in lines {
+                        if line.contains("\"id\":\"consume-1\"") {
+                            timer.cancel()
+                            if !didComplete {
+                                didComplete = true
+                                outPipe.fileHandleForReading.readabilityHandler = nil
+                                process.terminate()
+                                
+                                var success = false
+                                var errMsg: String? = nil
+                                if let data = line.data(using: .utf8),
+                                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                                    if let res = json["result"] as? [String: Any], res["outcome"] as? String == "reset" {
+                                        success = true
+                                    } else if let err = json["error"] as? [String: Any] {
+                                        errMsg = err["message"] as? String ?? "리셋 처리 실패"
+                                    } else {
+                                        errMsg = "알 수 없는 응답"
+                                    }
+                                } else {
+                                    errMsg = "응답 파싱 실패"
+                                }
+                                
+                                DispatchQueue.main.async {
+                                    if success {
+                                        self?.fetchUsage { _ in }
+                                    }
+                                    completion(success, errMsg)
+                                }
+                            }
+                            return
+                        } else if line.contains("\"id\":\"init-1\"") {
+                            let idempotencyKey = UUID().uuidString
+                            let req = "{\"jsonrpc\":\"2.0\",\"id\":\"consume-1\",\"method\":\"account/rateLimitResetCredit/consume\",\"params\":{\"idempotencyKey\":\"\(idempotencyKey)\"}}\n"
+                            if let data = req.data(using: .utf8) {
+                                inPipe.fileHandleForWriting.write(data)
+                            }
+                        }
+                    }
+                }
+            }
+            
+            do {
+                try process.run()
+                let initReq = "{\"jsonrpc\":\"2.0\",\"id\":\"init-1\",\"method\":\"initialize\",\"params\":{\"clientInfo\":{\"name\":\"catpacity\",\"version\":\"1.0.0\"}}}\n"
+                if let data = initReq.data(using: .utf8) {
+                    inPipe.fileHandleForWriting.write(data)
+                }
+            } catch {
+                timer.cancel()
+                if !didComplete {
+                    didComplete = true
+                    DispatchQueue.main.async {
+                        completion(false, error.localizedDescription)
+                    }
+                }
+            }
+        }
     }
 }

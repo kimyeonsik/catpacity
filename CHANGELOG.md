@@ -3,6 +3,24 @@
 All notable changes to **Catpacity** will be documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.6] - 2026-09-23
+
+### 🎟️ OpenAI Codex Rate Limit Reset Credits Integration
+- **Codex 리셋권(한도 초기화 티켓) 실시간 연동 및 UI 표시**:
+  - OpenAI Codex 내부 RPC 프로토콜(`account/rateLimits/read`)의 `rateLimitResetCredits` 데이터를 정밀 파싱하여 앱에 연동.
+  - **헤더 배지**: 리셋권 보유 시 Codex 카드 헤더 우측에 `[🎟️ 리셋권 N장]` 보라색 캡슐 배지 표시.
+  - **상세 내역 표시**: 카드 본문 세부 목록에 보유 매수, 티켓 유형(Full reset), 유효기간 만료일자를 친절하게 안내 (`• 🎟️ 리셋권: N장 보유 중 (Full reset - 유효기간: YYYY. MM. DD까지)` / 미보유 시 `• 🎟️ 리셋권: 0장`).
+- **원클릭 즉시 리셋 (Instant Limit Reset Action)**:
+  - 리셋권을 보유하고 있을 때 Codex 카드 하단에 **`[🎟️ 리셋권 N장 보유 중 - 지금 리셋]`** 전용 액션 배너 활성화.
+  - 클릭 시 확인 대화상자(Alert)를 거쳐 `account/rateLimitResetCredit/consume` RPC를 자동 호출하여, 브라우저 접속 없이 앱 내에서 즉시 쿼터를 **100% 잔여(0% 사용)로 완전 복구**.
+- **메뉴바 아이콘 툴팁(Hover) 연동**:
+  - 메뉴바 고양이 아이콘에 마우스 커서를 올렸을 때 나타나는 툴팁에도 리셋권 보유 수량이 함께 표기되도록 개선.
+- **말풍선(팝오버) 상단 고양이 상태 & 품종 이름 말줄임(...) 현상 완벽 해결**:
+  - 기존에 1행에 상태 제목, 품종 이름, 잔여 % 캡슐이 한꺼번에 배치되어 긴 상태명("완전 방전 액체 고양이" 등)이나 품종명("골든 바이컬러" 등)에서 텍스트가 잘려 `...`으로 말줄임 표시되던 문제 해결.
+  - 1행(이모지 + 상태 제목 + 잔여 % 캡슐), 2행(품종명 배지 + 기준 AI 서비스 라벨), 3행(상태 대사 문구)으로 레이아웃을 정돈하고 팝오버 폭을 375pt로 최적화하여 어떠한 상태/품종에서도 글자 잘림 없이 시원하게 표시되도록 개선.
+
+---
+
 ## [1.3.5] - 2026-09-23
 
 ### 🐱 Cat Breed Companion Selection & 5-Stage State Variations
