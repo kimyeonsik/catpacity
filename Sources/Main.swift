@@ -53,7 +53,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             button.target = self
             button.action = #selector(statusItemClicked(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-            let initialFrame = PixelArtFrames.getFrames(for: .energetic).first
+            let initialFrame = PixelArtFrames.getFrames(for: .energetic, breed: appState.selectedBreed).first
             button.image = initialFrame
         }
         

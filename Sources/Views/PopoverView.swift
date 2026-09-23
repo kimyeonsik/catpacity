@@ -30,6 +30,7 @@ public struct PopoverView: View {
             // Header: Dynamic Retro Animated Pixel Cat Graphic + Quote
             CatIllustrationView(
                 stage: activeStage,
+                breed: appState.selectedBreed,
                 remainingPercent: activeRemaining,
                 animFrame: appState.currentAnimFrame,
                 targetLabel: "기준: \(appState.activeTargetLabel)"

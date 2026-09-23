@@ -2,30 +2,53 @@ import AppKit
 
 public class PixelArtFrames {
     
-    // Cache pre-rendered NSImages so switching frames is instantaneous and zero CPU overhead
-    private static var cachedFrames: [CatStage: [NSImage]] = [:]
+    // Cache pre-rendered NSImages: [Key: [NSImage]]
+    // Key format: "\(breed.rawValue)_\(stage.rawValue)"
+    private static var cachedFrames: [String: [NSImage]] = [:]
     
-    public static func getFrames(for stage: CatStage) -> [NSImage] {
-        if let frames = cachedFrames[stage] {
+    public static func getFrames(for stage: CatStage, breed: CatBreed = .gingerTabby) -> [NSImage] {
+        let key = "\(breed.rawValue)_\(stage.rawValue)"
+        if let frames = cachedFrames[key] {
             return frames
         }
         
         let gridFrames = rawGrids(for: stage)
-        let images = gridFrames.map { renderImage(grid: $0, scale: 1.0) }
-        cachedFrames[stage] = images
+        let images = gridFrames.map { renderImage(grid: $0, breed: breed, scale: 1.0) }
+        cachedFrames[key] = images
         return images
     }
     
-    public static func getLargeFrame(for stage: CatStage, frameIndex: Int) -> NSImage {
+    public static func getLargeFrame(for stage: CatStage, breed: CatBreed = .gingerTabby, frameIndex: Int) -> NSImage {
         let gridFrames = rawGrids(for: stage)
         let safeIndex = frameIndex % max(1, gridFrames.count)
-        return renderImage(grid: gridFrames[safeIndex], scale: 3.0)
+        return renderImage(grid: gridFrames[safeIndex], breed: breed, scale: 3.0)
     }
     
-    private static func renderImage(grid: [String], scale: CGFloat) -> NSImage {
+    public static func clearCache() {
+        cachedFrames.removeAll()
+    }
+    
+    private static func renderImage(grid: [String], breed: CatBreed, scale: CGFloat) -> NSImage {
         let height = grid.count
         let width = grid.first?.count ?? 0
         let size = NSSize(width: CGFloat(width) * scale, height: CGFloat(height) * scale)
+        
+        // Alpha weights for menu bar template rendering based on breed
+        let (coatAlpha, stripeAlpha, chestAlpha, pinkAlpha): (CGFloat, CGFloat, CGFloat, CGFloat)
+        switch breed {
+        case .gingerTabby:
+            (coatAlpha, stripeAlpha, chestAlpha, pinkAlpha) = (0.60, 0.78, 0.25, 0.35)
+        case .britishBlue:
+            (coatAlpha, stripeAlpha, chestAlpha, pinkAlpha) = (0.65, 0.75, 0.40, 0.35)
+        case .creamWhite:
+            (coatAlpha, stripeAlpha, chestAlpha, pinkAlpha) = (0.35, 0.50, 0.15, 0.35)
+        case .calico:
+            (coatAlpha, stripeAlpha, chestAlpha, pinkAlpha) = (0.45, 0.75, 0.65, 0.40)
+        case .goldenBicolor:
+            (coatAlpha, stripeAlpha, chestAlpha, pinkAlpha) = (0.62, 0.72, 0.20, 0.35)
+        case .siamese:
+            (coatAlpha, stripeAlpha, chestAlpha, pinkAlpha) = (0.40, 0.85, 0.18, 0.35)
+        }
         
         let image = NSImage(size: size, flipped: false) { rect in
             guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
@@ -47,23 +70,23 @@ public class PixelArtFrames {
                         ctx.setFillColor(NSColor.black.cgColor)
                         ctx.fill(pixelRect)
                     case "S":
-                        // Dark stripes / pattern (75% opacity)
-                        ctx.setFillColor(NSColor.black.withAlphaComponent(0.75).cgColor)
+                        // Dark stripes / pattern mask
+                        ctx.setFillColor(NSColor.black.withAlphaComponent(stripeAlpha).cgColor)
                         ctx.fill(pixelRect)
                     case "C":
-                        // Main body coat (60% opacity)
-                        ctx.setFillColor(NSColor.black.withAlphaComponent(0.60).cgColor)
+                        // Main body coat
+                        ctx.setFillColor(NSColor.black.withAlphaComponent(coatAlpha).cgColor)
                         ctx.fill(pixelRect)
                     case "P":
-                        // Inner ear & tongue accent (35% opacity)
-                        ctx.setFillColor(NSColor.black.withAlphaComponent(0.35).cgColor)
+                        // Inner ear & tongue accent
+                        ctx.setFillColor(NSColor.black.withAlphaComponent(pinkAlpha).cgColor)
                         ctx.fill(pixelRect)
                     case "W":
-                        // White chest bib highlight (25% opacity)
-                        ctx.setFillColor(NSColor.black.withAlphaComponent(0.25).cgColor)
+                        // White chest bib / underbelly
+                        ctx.setFillColor(NSColor.black.withAlphaComponent(chestAlpha).cgColor)
                         ctx.fill(pixelRect)
                     case "Z", "z":
-                        // Sleep Zzz (80% opacity)
+                        // Sleep Zzz
                         ctx.setFillColor(NSColor.black.withAlphaComponent(0.80).cgColor)
                         ctx.fill(pixelRect)
                     default:
@@ -93,7 +116,7 @@ public class PixelArtFrames {
         }
     }
     
-    // MARK: - Stage 1: Energetic (20x18) - Golden Ginger Tabby (Reference Cat 1)
+    // MARK: - Stage 1: Energetic (20x18) - Standing tall, proud ears, wagging tail
     private static let energeticGrids: [[String]] = [
         [
             ".....B.....B........",
@@ -110,7 +133,7 @@ public class PixelArtFrames {
             ".BCCCCCWWWCCCCCBSB..",
             ".BSSSCCWWWCCSSSBCB..",
             ".BSCCBCCWCCBCCSBSB..",
-            ".BCCCBCBCBCBCCCBB...",
+            ".BCCCBSBCBSBCCCBB...",
             "..BCCBCBCBCBCCB.....",
             "...BBB.BBB.BBB......",
             ".....BBB.BBB........"
@@ -130,16 +153,17 @@ public class PixelArtFrames {
             ".BCCCCCWWWCCCCCBSB..",
             ".BSSSCCWWWCCSSSBCB..",
             ".BSCCBCCWCCBCCSBSB..",
-            ".BCCCBCBCBCBCCCBB...",
+            ".BCCCBSBCBSBCCCBB...",
             "..BCCBCBCBCBCCB.....",
             "...BBB.BBB.BBB......",
             ".....BBB.BBB........"
         ]
     ]
     
-    // MARK: - Stage 2: Content (20x18) - British Shorthair Blue/Gray (Reference Cat 2)
+    // MARK: - Stage 2: Content (20x18) - Cozy loaf, tucked paws, rounded bottom, relaxed eyes
     private static let contentGrids: [[String]] = [
         [
+            "....................",
             ".....B.....B........",
             "....BPB...BPB.......",
             "....BPPBBBPPB.......",
@@ -147,19 +171,19 @@ public class PixelArtFrames {
             "...BCBBCCCBBCB......",
             "...BCCCCBCCCCB...BB.",
             "..BCCCCBCBCCCCB.BSCB",
-            "..BCCWCCCCCWCCBBCSB.",
+            "..BSCWCCCCCWCSBBCSB.",
             ".BCCCCWCCCWCCCCBSB..",
             ".BCCCCWWWWWCCCCBCB..",
             ".BCCCCCWWWCCCCCBCB..",
-            ".BCCCCCWWWCCCCCBSB..",
-            ".BCCCCCWWWCCCCCBCB..",
-            ".BCCCBCCWCCBCCCBSB..",
-            ".BCCCBCBCBCBCCCBB...",
-            "..BCCBCBCBCBCCB.....",
-            "...BBB.BBB.BBB......",
-            ".....BBB.BBB........"
+            ".BSSSCCWWWCCSSSBSB..",
+            ".BSCCCCCCCCCCCCBCB..",
+            ".BCCCBBCCCCBBCCCBB..",
+            ".BCCCPBCCCCBPCCB....",
+            "..BCCCCCCCCCCCCB....",
+            "...BBBBBBBBBBBB....."
         ],
         [
+            "....................",
             ".....B.....B........",
             "....BPB...BPB.......",
             "....BPPBBBPPB....BB.",
@@ -167,109 +191,108 @@ public class PixelArtFrames {
             "...BCBBCCCBBCB..BCCB",
             "...BCCCCBCCCCB.BCCB.",
             "..BCCCCBCBCCCCBBCB..",
-            "..BCCWCCCCCWCCBBCB..",
+            "..BSCWCCCCCWCSBBCB..",
             ".BCCCCWCCCWCCCCBCB..",
             ".BCCCCWWWWWCCCCBSB..",
             ".BCCCCCWWWCCCCCBCB..",
-            ".BCCCCCWWWCCCCCBSB..",
-            ".BCCCCCWWWCCCCCBCB..",
-            ".BCCCBCCWCCBCCCBSB..",
-            ".BCCCBCBCBCBCCCBB...",
-            "..BCCBCBCBCBCCB.....",
-            "...BBB.BBB.BBB......",
-            ".....BBB.BBB........"
+            ".BSSSCCWWWCCSSSBSB..",
+            ".BSCCCCCCCCCCCCBCB..",
+            ".BCCCBBCCCCBBCCCBB..",
+            ".BCCCPBCCCCBPCCB....",
+            "..BCCCCCCCCCCCCB....",
+            "...BBBBBBBBBBBB....."
         ]
     ]
     
-    // MARK: - Stage 3: Tired (20x18) - Drowsy White/Ivory Cat with Drifting Zzz (Reference Cat 3)
+    // MARK: - Stage 3: Tired (20x18) - Slumped posture, drooped ears, sleepy eyes, drifting Zzz
     private static let tiredGrids: [[String]] = [
         [
             "...............ZZZZ.",
             ".................ZZ.",
             "................ZZ..",
-            ".....B.....B...ZZZZ.",
+            "...............ZZZZ.",
+            ".....B.....B........",
             "....BPB...BPB.......",
-            "....BPPBBBPPB.......",
-            "...BCCCCSCCCCB......",
-            "...BCBBCCCBBCB......",
-            "...BCCCCBCCCCB...BB.",
-            "..BCCCCBCBCCCCB.BCCB",
-            "..BCCWCCCCCWCCBBCCB.",
-            ".BCCCCWCCCWCCCCBCB..",
+            "...BPPPBBBPPPB......",
+            "..BCCCCCSCCCCB......",
+            "..BCCBBCCCBBCB......",
+            "..BCCCCCBCCCCB......",
+            "..BCCCCBCBCCCCB..BB.",
+            ".BBSCWCCCCCWCSB.BSCB",
+            ".BCCCCWCCCWCCCCBBCB.",
             ".BCCCCWWWWWCCCCBCB..",
             ".BCCCCCWWWCCCCCBCB..",
-            ".BCCCCCWWWCCCCCBCB..",
-            ".BCCCBCCWCCBCCCBCB..",
-            ".BCCCBCBCBCBCCCBB...",
-            "...BBB.BBB.BBB......"
+            ".BCCCBBCCCCBBCCCB...",
+            "..BCCCCCCCCCCCCB....",
+            "...BBBBBBBBBBBB....."
         ],
         [
             "...............ZZZZ.",
             ".................ZZ.",
-            ".....B.....B....ZZ..",
-            "....BPB...BPB..ZZZZ.",
-            "....BPPBBBPPB..zz...",
-            "...BCCCCSCCCCB..z...",
-            "...BCBBCCCBBCB.zz...",
-            "...BCCCCBCCCCB......",
-            "..BCCCCBCBCCCCB..BB.",
-            "..BCCWCCCCCWCCB.BCCB",
-            ".BCCCCWCCCWCCCCBBCCB",
-            ".BCCCCWWWWWCCCCBCB..",
+            "................ZZ..",
+            "...............ZZZZ.",
+            ".............zz.....",
+            "..............z.....",
+            ".....B.....B.zz.....",
+            "....BPB...BPB.......",
+            "...BPPPBBBPPPB......",
+            "..BCCCCCSCCCCB......",
+            "..BCCBBCCCBBCB......",
+            "..BCCCCCBCCCCB...BB.",
+            ".BCCCCBCBCCCCB..BCCB",
+            ".BCCCCWWWWWCCCCBBCB.",
             ".BCCCCCWWWCCCCCBCB..",
-            ".BCCCCCWWWCCCCCBCB..",
-            ".BCCCBCCWCCBCCCBCB..",
-            ".BCCCBCBCBCBCCCBB...",
-            "..BCCBCBCBCBCCB.....",
-            "...BBB.BBB.BBB......"
+            ".BCCCBBCCCCBBCCCB...",
+            "..BCCCCCCCCCCCCB....",
+            "...BBBBBBBBBBBB....."
         ]
     ]
     
-    // MARK: - Stage 4: Melting (20x18) - Calico Mochi with Blep Tongue (Reference Cat 4)
+    // MARK: - Stage 4: Melting (20x18) - Drooping mochi, sagging cheeks, pink blep tongue!
     private static let meltingGrids: [[String]] = [
         [
             "....................",
             "....................",
             "....................",
+            "....................",
             ".....B.....B........",
             "....BPB...BPB.......",
             "....BPPBBBPPB.......",
             "...BCCCCSCCCCB......",
             "...BCBBCCCBBCB......",
-            "...BCCCCBCCCCB...BB.",
-            "..BCCCCBCBCCCCB.BCCB",
-            "..BCCCBPPBCCCCBBCCB.",
-            ".BCCCCWPPWCCCCBCB...",
-            ".BCCCCWWWWWCCCCBCB..",
-            ".BCCCCCWWWCCCCCBCB..",
-            ".BCCCCCCCCCCCCBBCB..",
-            ".BCCCCCCCCCCCCCCBB..",
-            ".BCCCCCCCCCCCCCCCB..",
-            "..BBBBBBBBBBBBBBB..."
+            "..BCCCCCBCCCCCB.....",
+            "..BCCCCBCBCCCCB..BB.",
+            ".BCCCCBPPBCCCCB.BCCB",
+            ".BCCCCWPPWCCCCBBCB..",
+            "BCCCCCWWWWWCCCCBCB..",
+            "BCCCCCCCCCCCCCCBCB..",
+            "BCCCCCCCCCCCCCCCBB..",
+            "BCCCCCCCCCCCCCCCCB..",
+            ".BBBBBBBBBBBBBBBB..."
         ],
         [
             "....................",
             "....................",
             "....................",
+            "....................",
             ".....B.....B........",
             "....BPB...BPB.......",
             "....BPPBBBPPB.......",
             "...BCCCCSCCCCB......",
             "...BCBBCCCBBCB......",
-            "...BCCCCBCCCCB..BB..",
+            "..BCCCCCBCCCCCB..BB.",
             "..BCCCCBCBCCCCB.BCCB",
-            "..BCCCBPPBCCCCBBCCB.",
+            ".BCCCCBPPBCCCCBBCCB.",
             ".BCCCCWPPWCCCCBCB...",
-            ".BCCCCWWWWWCCCCBCB..",
-            ".BCCCCCWWWCCCCCBCB..",
-            ".BCCCCCCCCCCCCBBCB..",
-            ".BCCCCCCCCCCCCCCBB..",
-            ".BCCCCCCCCCCCCCCCB..",
-            "..BBBBBBBBBBBBBBB..."
+            "BCCCCCWWWWWCCCCBCB..",
+            "BCCCCCCCCCCCCCCBCB..",
+            "BCCCCCCCCCCCCCCBB...",
+            "BCCCCCCCCCCCCCCCB...",
+            ".BBBBBBBBBBBBBBB...."
         ]
     ]
     
-    // MARK: - Stage 5: Liquid (20x18) - Siamese Flat Puddle Loaf (Reference Cat 6)
+    // MARK: - Stage 5: Liquid (20x18) - Pancake puddle flat on the floor, snore Zzz
     private static let liquidGrids: [[String]] = [
         [
             "...............ZZZZ.",
@@ -279,17 +302,17 @@ public class PixelArtFrames {
             "....................",
             "....................",
             "....................",
+            "....................",
             ".....B.....B........",
             "....BPB...BPB.......",
             "....BPPBBBPPB.......",
             "...BCCCCSCCCCB......",
             "...BCBBCCCBBCB......",
-            "...BCCCCBCCCCB...BB.",
+            "..BCCCCCBCCCCCB..BB.",
             "..BCCCCBCBCCCCB.BCCB",
-            ".BCCCCCCCCCCCCBBCB..",
-            ".BCCCCCCCCCCCCCCBB..",
-            ".BCCCCCCCCCCCCCCCB..",
-            "..BBBBBBBBBBBBBBB..."
+            "BCCCCCCCCCCCCCCBBCB.",
+            "BCCCCCCCCCCCCCCCCBB.",
+            ".BBBBBBBBBBBBBBBBB.."
         ],
         [
             "...............ZZZZ.",
@@ -299,17 +322,17 @@ public class PixelArtFrames {
             ".............zz.....",
             "..............z.....",
             ".............zz.....",
+            "....................",
             ".....B.....B........",
             "....BPB...BPB.......",
             "....BPPBBBPPB.......",
             "...BCCCCSCCCCB......",
             "...BCBBCCCBBCB......",
-            "...BCCCCBCCCCB...BB.",
+            "..BCCCCCBCCCCCB..BB.",
             "..BCCCCBCBCCCCB.BCCB",
-            ".BCCCCCCCCCCCCBBCB..",
-            ".BCCCCCCCCCCCCCCBB..",
-            ".BCCCCCCCCCCCCCCCB..",
-            "..BBBBBBBBBBBBBBB..."
+            "BCCCCCCCCCCCCCCBBCB.",
+            "BCCCCCCCCCCCCCCCCBB.",
+            ".BBBBBBBBBBBBBBBBB.."
         ]
     ]
 }

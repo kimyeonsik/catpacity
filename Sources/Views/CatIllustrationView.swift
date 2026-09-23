@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct CatIllustrationView: View {
     public let stage: CatStage
+    public let breed: CatBreed
     public let remainingPercent: Double
     public let animFrame: Int
     public let targetLabel: String
@@ -9,8 +10,15 @@ public struct CatIllustrationView: View {
     @State private var localFrame: Int = 0
     private let popoverAnimTimer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
     
-    public init(stage: CatStage, remainingPercent: Double, animFrame: Int, targetLabel: String = "") {
+    public init(
+        stage: CatStage,
+        breed: CatBreed = .gingerTabby,
+        remainingPercent: Double,
+        animFrame: Int,
+        targetLabel: String = ""
+    ) {
         self.stage = stage
+        self.breed = breed
         self.remainingPercent = remainingPercent
         self.animFrame = animFrame
         self.targetLabel = targetLabel
@@ -42,33 +50,37 @@ public struct CatIllustrationView: View {
                     // Cute Chubby Retro Pixel Art Display Frame
                     ZStack {
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(NSColor.windowBackgroundColor).opacity(0.7))
+                            .fill(Color(NSColor.windowBackgroundColor).opacity(0.75))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
                                     .stroke(Color.primary.opacity(0.08), lineWidth: 1)
                             )
                         
                         // Pixel art drop shadow for depth
-                        PixelArtCanvas(stage: stage, frameIndex: displayFrame)
+                        PixelArtCanvas(stage: stage, breed: breed, frameIndex: displayFrame)
                             .offset(x: 1.5, y: 1.5)
                             .opacity(0.12)
                         
-                        PixelArtCanvas(stage: stage, frameIndex: displayFrame)
+                        PixelArtCanvas(stage: stage, breed: breed, frameIndex: displayFrame)
                     }
                     .frame(width: 84, height: 68)
                     
                     // Status & Quote
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(alignment: .center, spacing: 5) {
-                            Text(stage.emoji)
-                                .font(.system(size: 15))
-                            
                             VStack(alignment: .leading, spacing: 1) {
-                                Text(stage.title)
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundColor(.primary)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.85)
+                                HStack(spacing: 4) {
+                                    Text(breed.emoji)
+                                        .font(.system(size: 13))
+                                    Text(stage.title)
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(.primary)
+                                        .lineLimit(1)
+                                    Text("(\(breed.shortName))")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                }
                                 
                                 if !targetLabel.isEmpty {
                                     Text(targetLabel)
@@ -120,11 +132,18 @@ struct CatPalette {
 }
 
 // MARK: - Pixel Art Canvas
-struct PixelArtCanvas: View {
-    let stage: CatStage
-    let frameIndex: Int
+public struct PixelArtCanvas: View {
+    public let stage: CatStage
+    public let breed: CatBreed
+    public let frameIndex: Int
     
-    var body: some View {
+    public init(stage: CatStage, breed: CatBreed, frameIndex: Int = 0) {
+        self.stage = stage
+        self.breed = breed
+        self.frameIndex = frameIndex
+    }
+    
+    public var body: some View {
         Canvas { context, size in
             let grids = PixelArtFrames.rawGrids(for: stage)
             guard !grids.isEmpty else { return }
@@ -137,7 +156,7 @@ struct PixelArtCanvas: View {
             let xOffset = (size.width - CGFloat(gridWidth) * pixelSize) / 2
             let yOffset = (size.height - CGFloat(gridHeight) * pixelSize) / 2
             
-            let palette = paletteForStage(stage)
+            let palette = paletteForBreed(breed)
             
             for (y, row) in currentGrid.enumerated() {
                 for (x, char) in row.enumerated() {
@@ -169,10 +188,10 @@ struct PixelArtCanvas: View {
         }
     }
     
-    private func paletteForStage(_ stage: CatStage) -> CatPalette {
-        switch stage {
-        case .energetic:
-            // Ginger Tabby (Reference Cat 1)
+    private func paletteForBreed(_ breed: CatBreed) -> CatPalette {
+        switch breed {
+        case .gingerTabby:
+            // 🧀 Ginger Tabby (Reference Cat 1)
             return CatPalette(
                 outline: Color(red: 0.17, green: 0.14, blue: 0.25), // #2B233F deep purple charcoal
                 coat: Color(red: 0.98, green: 0.60, blue: 0.31),   // #FA9A50 warm rich ginger
@@ -181,8 +200,8 @@ struct PixelArtCanvas: View {
                 pink: Color(red: 0.95, green: 0.48, blue: 0.54),   // #F27A8A strawberry pink ears
                 sleepZ: Color(red: 0.35, green: 0.75, blue: 1.00)
             )
-        case .content:
-            // British Shorthair Blue/Gray (Reference Cat 2)
+        case .britishBlue:
+            // 🫐 British Shorthair Blue/Gray (Reference Cat 2)
             return CatPalette(
                 outline: Color(red: 0.12, green: 0.14, blue: 0.23), // #1E243A deep navy charcoal
                 coat: Color(red: 0.42, green: 0.56, blue: 0.66),   // #6B8EA8 silky slate blue
@@ -191,8 +210,8 @@ struct PixelArtCanvas: View {
                 pink: Color(red: 0.94, green: 0.47, blue: 0.53),   // #F07888 coral pink ears
                 sleepZ: Color(red: 0.35, green: 0.75, blue: 1.00)
             )
-        case .tired:
-            // Drowsy Ivory/Cream Cat (Reference Cat 3)
+        case .creamWhite:
+            // 🥛 Cream White Cat (Reference Cat 3)
             return CatPalette(
                 outline: Color(red: 0.18, green: 0.16, blue: 0.22), // #2E2838 soft dark charcoal
                 coat: Color(red: 0.97, green: 0.93, blue: 0.89),   // #F8ECE2 warm cream coat
@@ -201,8 +220,8 @@ struct PixelArtCanvas: View {
                 pink: Color(red: 0.93, green: 0.64, blue: 0.68),   // #EDA2AD sleepy rose ears
                 sleepZ: Color(red: 0.31, green: 0.71, blue: 0.97)  // #50B4F8 sky cyan Zzz
             )
-        case .melting:
-            // Calico Mochi with Blep (Reference Cat 4)
+        case .calico:
+            // 🌸 Calico (Reference Cat 4)
             return CatPalette(
                 outline: Color(red: 0.18, green: 0.11, blue: 0.16), // #2D1C2A deep berry charcoal
                 coat: Color(red: 0.99, green: 0.92, blue: 0.90),   // #FCEAE6 milk cream
@@ -211,12 +230,22 @@ struct PixelArtCanvas: View {
                 pink: Color(red: 1.00, green: 0.26, blue: 0.47),   // #FF4278 bright blep tongue!
                 sleepZ: Color(red: 0.25, green: 0.78, blue: 0.94)
             )
-        case .liquid:
-            // Siamese Flat Loaf Puddle (Reference Cat 6)
+        case .goldenBicolor:
+            // 🍯 Golden Bicolor (Reference Cat 5)
+            return CatPalette(
+                outline: Color(red: 0.16, green: 0.12, blue: 0.14), // #2A1E24 deep charcoal
+                coat: Color(red: 0.97, green: 0.67, blue: 0.16),   // #F8AC28 warm golden yellow
+                stripe: Color(red: 0.87, green: 0.54, blue: 0.08), // #DF8A14 darker gold shade
+                chest: Color(red: 1.00, green: 1.00, blue: 1.00),  // #FFFFFF pure white chest & paws
+                pink: Color(red: 0.96, green: 0.55, blue: 0.59),   // #F48B96 peach rose ears
+                sleepZ: Color(red: 0.35, green: 0.75, blue: 1.00)
+            )
+        case .siamese:
+            // ☕️ Siamese (Reference Cat 6)
             return CatPalette(
                 outline: Color(red: 0.14, green: 0.09, blue: 0.11), // #24161C dark espresso
                 coat: Color(red: 0.95, green: 0.87, blue: 0.81),   // #F2DFCE warm latte cream
-                stripe: Color(red: 0.56, green: 0.29, blue: 0.21), // #8E4A35 seal point mask
+                stripe: Color(red: 0.56, green: 0.29, blue: 0.21), // #8E4A35 seal point mask & paws
                 chest: Color(red: 1.00, green: 0.96, blue: 0.92),  // #FFF4EB light cream bib
                 pink: Color(red: 0.90, green: 0.45, blue: 0.52),   // #E67385 soft rose
                 sleepZ: Color(red: 0.00, green: 0.88, blue: 1.00)  // #00E0FF electric cyan Zzz

@@ -107,3 +107,58 @@ public enum CatStatusTarget: String, CaseIterable, Identifiable {
     }
 }
 
+public enum CatBreed: String, CaseIterable, Identifiable {
+    case gingerTabby = "ginger_tabby"       // 🧀 골든 치즈 태비
+    case britishBlue = "british_blue"       // 🫐 브리티시 블루
+    case creamWhite = "cream_white"         // 🥛 크림 화이트
+    case calico = "calico"                  // 🌸 알록달록 삼색이
+    case goldenBicolor = "golden_bicolor"   // 🍯 골든 바이컬러
+    case siamese = "siamese"                // ☕️ 샴고양이
+    
+    public var id: String { rawValue }
+    
+    public var displayName: String {
+        switch self {
+        case .gingerTabby:   return "🧀 골든 치즈 태비 (Ginger Tabby)"
+        case .britishBlue:   return "🫐 브리티시 블루 (British Blue)"
+        case .creamWhite:    return "🥛 크림 화이트 (Cream White)"
+        case .calico:        return "🌸 알록달록 삼색이 (Calico)"
+        case .goldenBicolor: return "🍯 골든 바이컬러 (Golden Bicolor)"
+        case .siamese:       return "☕️ 샴고양이 (Siamese)"
+        }
+    }
+    
+    public var shortName: String {
+        switch self {
+        case .gingerTabby:   return "치즈 태비"
+        case .britishBlue:   return "브리티시 블루"
+        case .creamWhite:    return "크림 화이트"
+        case .calico:        return "삼색이"
+        case .goldenBicolor: return "골든 바이컬러"
+        case .siamese:       return "샴고양이"
+        }
+    }
+    
+    public var emoji: String {
+        switch self {
+        case .gingerTabby:   return "🧀"
+        case .britishBlue:   return "🫐"
+        case .creamWhite:    return "🥛"
+        case .calico:        return "🌸"
+        case .goldenBicolor: return "🍯"
+        case .siamese:       return "☕️"
+        }
+    }
+    
+    public var description: String {
+        switch self {
+        case .gingerTabby:   return "따뜻한 오렌지빛 호랑이 줄무늬와 크림색 V가슴 패치"
+        case .britishBlue:   return "차분하고 고급스러운 슬레이트 블루 털과 핑크빛 귀"
+        case .creamWhite:    return "포근하고 깨끗한 밀크 화이트 털과 딸기우유빛 귀"
+        case .calico:        return "살구색과 베리색 얼룩무늬가 매력적인 삼색냥이"
+        case .goldenBicolor: return "화사한 노란빛 골든 털과 하얀 발목 양말"
+        case .siamese:       return "부드러운 라떼 코트와 짙은 초콜릿색 포인트 마스크"
+        }
+    }
+}
+

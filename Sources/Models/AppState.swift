@@ -20,6 +20,35 @@ public class AppState: ObservableObject {
     @Published public var selfUpdateProgressText: String = ""
     @Published public var selfUpdateError: String? = nil
     
+    // Cat Breed Selection
+    @Published public var selectedBreed: CatBreed = {
+        let raw = UserDefaults.standard.string(forKey: "catpacity_selected_breed") ?? "ginger_tabby"
+        return CatBreed(rawValue: raw) ?? .gingerTabby
+    }() {
+        didSet {
+            UserDefaults.standard.set(selectedBreed.rawValue, forKey: "catpacity_selected_breed")
+            PixelArtFrames.clearCache()
+            rebuildCompositeFrames()
+            if shouldRunAnimation {
+                if let button = statusItem?.button {
+                    let mode = UserDefaults.standard.string(forKey: "catpacity_menubar_mode") ?? "cat_twoline"
+                    if mode == "cat_twoline" || mode == "cat_dynamic" {
+                        if !cachedCompositeFrames.isEmpty {
+                            button.image = cachedCompositeFrames[currentAnimFrame % cachedCompositeFrames.count]
+                        }
+                    } else {
+                        let stageFrames = PixelArtFrames.getFrames(for: activeCatStage, breed: selectedBreed)
+                        if !stageFrames.isEmpty {
+                            button.image = stageFrames[currentAnimFrame % stageFrames.count]
+                        }
+                    }
+                }
+            } else {
+                showStaticMenuFrame()
+            }
+        }
+    }
+    
     public var catStatusTarget: CatStatusTarget {
         let raw = UserDefaults.standard.string(forKey: "catpacity_cat_status_target") ?? "min"
         return CatStatusTarget(rawValue: raw) ?? .min
@@ -197,7 +226,7 @@ public class AppState: ObservableObject {
                 button.image = first
             }
         } else {
-            let stageFrames = PixelArtFrames.getFrames(for: activeCatStage)
+            let stageFrames = PixelArtFrames.getFrames(for: activeCatStage, breed: selectedBreed)
             button.image = stageFrames.first
             updateMenuBarText()
         }
@@ -283,7 +312,7 @@ public class AppState: ObservableObject {
     
     public func rebuildCompositeFrames() {
         let stage = activeCatStage
-        let frames = PixelArtFrames.getFrames(for: stage)
+        let frames = PixelArtFrames.getFrames(for: stage, breed: selectedBreed)
         guard !frames.isEmpty else {
             cachedCompositeFrames = []
             return
@@ -351,7 +380,7 @@ public class AppState: ObservableObject {
             button.title = ""
             button.image = cachedCompositeFrames[currentAnimFrame]
         } else {
-            let stageFrames = PixelArtFrames.getFrames(for: activeCatStage)
+            let stageFrames = PixelArtFrames.getFrames(for: activeCatStage, breed: selectedBreed)
             if !stageFrames.isEmpty {
                 button.image = stageFrames[currentAnimFrame % stageFrames.count]
             }

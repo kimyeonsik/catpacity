@@ -11,6 +11,9 @@ public struct SettingsView: View {
     @AppStorage("catpacity_show_percent") private var showPercent: Bool = true
     @AppStorage("catpacity_show_reset_time") private var showResetTime: Bool = true
     
+    // Cat Breed Customization
+    @AppStorage("catpacity_selected_breed") private var selectedBreedRaw: String = "ginger_tabby"
+    
     // Cat Status Target Customization
     @AppStorage("catpacity_cat_status_target") private var catStatusTarget: String = "min"
     
@@ -114,7 +117,82 @@ public struct SettingsView: View {
             .background(Color.primary.opacity(0.03))
             .cornerRadius(8)
             
-            // Section 2: Cat Status Target AI Service
+            // Section 2: Cat Breed Selection (반려묘 캐릭터 선택)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("🐱 반려묘 캐릭터 (품종) 선택")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.accentColor)
+                    Spacer()
+                    if let currentBreed = CatBreed(rawValue: selectedBreedRaw) {
+                        Text("\(currentBreed.emoji) \(currentBreed.shortName)")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                Text("나만의 고양이를 선택하세요. 쿼터 잔여량에 따라 해당 고양이의 표정과 상태가 변화합니다:")
+                    .font(.system(size: 10.5))
+                    .foregroundColor(.secondary)
+                
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                    ForEach(CatBreed.allCases) { breed in
+                        let isSelected = (selectedBreedRaw == breed.rawValue)
+                        Button(action: {
+                            selectedBreedRaw = breed.rawValue
+                            appState?.selectedBreed = breed
+                        }) {
+                            HStack(spacing: 8) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                    PixelArtCanvas(stage: .energetic, breed: breed, frameIndex: 0)
+                                        .padding(2)
+                                }
+                                .frame(width: 36, height: 32)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 3) {
+                                        Text(breed.emoji)
+                                            .font(.system(size: 11))
+                                        Text(breed.shortName)
+                                            .font(.system(size: 11, weight: isSelected ? .bold : .medium))
+                                            .foregroundColor(.primary)
+                                    }
+                                    Text(breed.description)
+                                        .font(.system(size: 8.5))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                }
+                                
+                                Spacer(minLength: 0)
+                                
+                                if isSelected {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.accentColor)
+                                        .font(.system(size: 13))
+                                }
+                            }
+                            .padding(7)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(isSelected ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.03))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(isSelected ? Color.accentColor : Color.primary.opacity(0.08), lineWidth: isSelected ? 1.5 : 0.5)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.top, 2)
+            }
+            .padding(10)
+            .background(Color.primary.opacity(0.03))
+            .cornerRadius(8)
+            
+            // Section 3: Cat Status Target AI Service
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("고양이 표정 / 상태 기준 AI")
@@ -346,7 +424,7 @@ public struct SettingsView: View {
             }
         }
         .padding(16)
-        .frame(width: 440, height: 580)
+        .frame(width: 460, height: 600)
         .onDisappear {
             appState?.updateMenuBar()
         }
