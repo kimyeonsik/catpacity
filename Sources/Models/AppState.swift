@@ -9,6 +9,7 @@ public class AppState: ObservableObject {
     )
     @Published public var lastSyncTime: Date = Date()
     @Published public var currentAnimFrame: Int = 0
+    @Published public var isOnBattery: Bool = PowerHelper.isOnBatteryPower
     
     // Update Checker & Self Update
     @Published public var updateAvailable: Bool = false
@@ -109,10 +110,14 @@ public class AppState: ObservableObject {
     public var shouldRunAnimation: Bool {
         guard !isScreenSleeping else { return false }
         guard isAnimationEnabled else { return false }
-        if pauseOnBatteryEnabled && PowerHelper.isOnBatteryPower {
+        if pauseOnBatteryEnabled && isOnBattery {
             return false
         }
         return true
+    }
+    
+    deinit {
+        PowerHelper.stopMonitoringPowerSource()
     }
     
     public init() {
@@ -141,6 +146,11 @@ public class AppState: ObservableObject {
         wsCenter.addObserver(self, selector: #selector(handleSessionBecomeActive), name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
         
         NotificationCenter.default.addObserver(self, selector: #selector(handlePowerStateChanged), name: Notification.Name.NSProcessInfoPowerStateDidChange, object: nil)
+        
+        // Real-time hardware AC / Battery power source monitoring via IOKit
+        PowerHelper.startMonitoringPowerSource { [weak self] in
+            self?.handlePowerStateChanged()
+        }
     }
     
     @objc private func handleScreenSleep() {
@@ -166,9 +176,25 @@ public class AppState: ObservableObject {
         startMenuBarAnimation()
     }
     
-    @objc private func handlePowerStateChanged() {
+    @objc public func handlePowerStateChanged() {
         // When user unplugs or plugs in Mac, update animation state according to battery saver settings
+        let newPower = PowerHelper.isOnBatteryPower
+        if self.isOnBattery != newPower {
+            self.isOnBattery = newPower
+        }
         startMenuBarAnimation()
+        updateMenuBarText()
+        
+        // Confirmation check after 0.5s for delayed kernel power state updates
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self = self else { return }
+            let confirmed = PowerHelper.isOnBatteryPower
+            if self.isOnBattery != confirmed {
+                self.isOnBattery = confirmed
+                self.startMenuBarAnimation()
+                self.updateMenuBarText()
+            }
+        }
     }
     
     public func startPeriodicRefresh() {
@@ -445,6 +471,9 @@ public class AppState: ObservableObject {
             var tip = "Catpacity: AI 쿼터 모니터"
             if overallUsage.codex.isConnected && overallUsage.codex.resetCreditsAvailableCount > 0 {
                 tip += " [🎟️ Codex 리셋권 \(overallUsage.codex.resetCreditsAvailableCount)장 보유]"
+            }
+            if pauseOnBatteryEnabled && isOnBattery {
+                tip += " [🔋 배터리 절전: 애니메이션 일시 정지]"
             }
             button.toolTip = tip
         }

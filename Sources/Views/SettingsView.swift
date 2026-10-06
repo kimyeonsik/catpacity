@@ -2,7 +2,7 @@ import SwiftUI
 
 public struct SettingsView: View {
     @Environment(\.presentationMode) var presentationMode
-    public var appState: AppState? = nil
+    @ObservedObject public var appState: AppState
     
     // Menu Bar Display Customization
     @AppStorage("catpacity_show_codex") private var showCodex: Bool = true
@@ -53,7 +53,7 @@ public struct SettingsView: View {
                     .font(.system(size: 15, weight: .bold))
                 Spacer()
                 Button("완료") {
-                    appState?.updateMenuBar()
+                    appState.updateMenuBar()
                     presentationMode.wrappedValue.dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
@@ -77,22 +77,22 @@ public struct SettingsView: View {
                             Toggle("OpenAI Codex", isOn: $showCodex)
                                 .font(.system(size: 11.5, weight: .medium))
                                 .onChange(of: showCodex) { _ in
-                                    appState?.updateMenuBar()
-                                    appState?.objectWillChange.send()
+                                    appState.updateMenuBar()
+                                    appState.objectWillChange.send()
                                 }
                             
                             Toggle("Google Gemini", isOn: $showGemini)
                                 .font(.system(size: 11.5, weight: .medium))
                                 .onChange(of: showGemini) { _ in
-                                    appState?.updateMenuBar()
-                                    appState?.objectWillChange.send()
+                                    appState.updateMenuBar()
+                                    appState.objectWillChange.send()
                                 }
                             
                             Toggle("Anthropic Claude", isOn: $showClaude)
                                 .font(.system(size: 11.5, weight: .medium))
                                 .onChange(of: showClaude) { _ in
-                                    appState?.updateMenuBar()
-                                    appState?.objectWillChange.send()
+                                    appState.updateMenuBar()
+                                    appState.objectWillChange.send()
                                 }
                         }
                         .padding(.vertical, 2)
@@ -106,11 +106,11 @@ public struct SettingsView: View {
                 HStack(spacing: 20) {
                     Toggle("남은 퍼센트 (%) 표시", isOn: $showPercent)
                         .font(.system(size: 11.5))
-                        .onChange(of: showPercent) { _ in appState?.updateMenuBar() }
+                        .onChange(of: showPercent) { _ in appState.updateMenuBar() }
                     
                     Toggle("리셋 남은 시간 표시", isOn: $showResetTime)
                         .font(.system(size: 11.5))
-                        .onChange(of: showResetTime) { _ in appState?.updateMenuBar() }
+                        .onChange(of: showResetTime) { _ in appState.updateMenuBar() }
                 }
             }
             .padding(10)
@@ -140,7 +140,7 @@ public struct SettingsView: View {
                         let isSelected = (selectedBreedRaw == breed.rawValue)
                         Button(action: {
                             selectedBreedRaw = breed.rawValue
-                            appState?.selectedBreed = breed
+                            appState.selectedBreed = breed
                         }) {
                             HStack(spacing: 8) {
                                 ZStack {
@@ -199,8 +199,8 @@ public struct SettingsView: View {
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.accentColor)
                     Spacer()
-                    if let label = appState?.activeTargetLabel, !label.isEmpty {
-                        Text("현재: \(label)")
+                    if !appState.activeTargetLabel.isEmpty {
+                        Text("현재: \(appState.activeTargetLabel)")
                             .font(.system(size: 10))
                             .foregroundColor(.secondary)
                     }
@@ -217,9 +217,9 @@ public struct SettingsView: View {
                 }
                 .pickerStyle(.menu)
                 .onChange(of: catStatusTarget) { _ in
-                    appState?.updateLineCache()
-                    appState?.updateMenuBar()
-                    appState?.objectWillChange.send()
+                    appState.updateLineCache()
+                    appState.updateMenuBar()
+                    appState.objectWillChange.send()
                 }
             }
             .padding(10)
@@ -235,7 +235,7 @@ public struct SettingsView: View {
                 Toggle("상단 메뉴바 고양이 애니메이션 활성화", isOn: $enableMenuBarAnimation)
                     .font(.system(size: 11.5, weight: .medium))
                     .onChange(of: enableMenuBarAnimation) { _ in
-                        appState?.updateMenuBar()
+                        appState.updateMenuBar()
                     }
                 
                 Text("체크 해제 시 정적 도트 아이콘을 유지하며 CPU 및 배터리를 전혀 소모하지 않습니다.")
@@ -250,7 +250,7 @@ public struct SettingsView: View {
                     Toggle("맥북 배터리 사용 시 애니메이션 일시 정지 (절전 모드)", isOn: $pauseOnBattery)
                         .font(.system(size: 11.5))
                         .onChange(of: pauseOnBattery) { _ in
-                            appState?.updateMenuBar()
+                            appState.handlePowerStateChanged()
                         }
                     
                     Text("전원 어댑터 연결 시에만 움직이고, 배터리 사용 시 자동으로 정적 아이콘으로 전환됩니다.")
@@ -258,6 +258,29 @@ public struct SettingsView: View {
                         .foregroundColor(.secondary)
                         .padding(.leading, 18)
                         .padding(.bottom, 2)
+                    
+                    // Live Power Status Feedback
+                    HStack(spacing: 5) {
+                        if !PowerHelper.hasBattery {
+                            Image(systemName: "desktopcomputer")
+                                .foregroundColor(.secondary)
+                                .font(.system(size: 9.5))
+                            Text("현재 기기는 데스크탑 Mac으로 상시 전원 공급 상태입니다.")
+                                .font(.system(size: 9.5))
+                                .foregroundColor(.secondary)
+                        } else {
+                            Image(systemName: appState.isOnBattery ? "battery.75" : "powerplug.fill")
+                                .foregroundColor(appState.isOnBattery ? .orange : .green)
+                                .font(.system(size: 9.5))
+                            Text(appState.isOnBattery
+                                 ? (pauseOnBattery ? "현재 상태: 🔋 배터리 전원 사용 중 (절전 모드로 애니메이션 정지됨)" : "현재 상태: 🔋 배터리 전원 사용 중 (애니메이션 동작 중)")
+                                 : "현재 상태: 🔌 전원 어댑터 연결됨 (애니메이션 정상 동작 중)")
+                                .font(.system(size: 9.5))
+                                .foregroundColor(appState.isOnBattery && pauseOnBattery ? .orange : .secondary)
+                        }
+                    }
+                    .padding(.leading, 18)
+                    .padding(.bottom, 2)
                     
                     Divider().opacity(0.4)
                     
@@ -268,7 +291,7 @@ public struct SettingsView: View {
                     }
                     .pickerStyle(.menu)
                     .onChange(of: animationSpeed) { _ in
-                        appState?.startMenuBarAnimation()
+                        appState.startMenuBarAnimation()
                     }
                 }
                 
@@ -301,7 +324,7 @@ public struct SettingsView: View {
                     SecureField("미입력 시 Antigravity CLI 및 계정 쿼터 자동 연동", text: $geminiApiKey)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 11))
-                        .onChange(of: geminiApiKey) { _ in appState?.refreshGemini() }
+                        .onChange(of: geminiApiKey) { _ in appState.refreshGemini() }
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
@@ -311,7 +334,7 @@ public struct SettingsView: View {
                     SecureField("미입력 시 로컬 Claude Code 로그인 계정 자동 감지", text: $claudeApiKey)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 11))
-                        .onChange(of: claudeApiKey) { _ in appState?.refreshClaude() }
+                        .onChange(of: claudeApiKey) { _ in appState.refreshClaude() }
                 }
             }
             .padding(10)
@@ -348,7 +371,7 @@ public struct SettingsView: View {
                 }
                 .pickerStyle(.menu)
                 .onChange(of: refreshInterval) { _ in
-                    appState?.startPeriodicRefresh()
+                    appState.startPeriodicRefresh()
                 }
                 
                 Toggle("잔여량 20% 이하 시 고양이 지침 알림 받기", isOn: $notifyHighUsage)
@@ -369,10 +392,10 @@ public struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Catpacity v\(UpdateCheckerService.shared.currentVersion)")
                             .font(.system(size: 11, weight: .semibold))
-                        if let msg = appState?.updateStatusMessage, !msg.isEmpty {
+                        if let msg = appState.updateStatusMessage, !msg.isEmpty {
                             Text(msg)
                                 .font(.system(size: 9.5))
-                                .foregroundColor(appState?.updateAvailable == true ? .blue : .secondary)
+                                .foregroundColor(appState.updateAvailable ? .blue : .secondary)
                         } else {
                             Text("Codex • Gemini • Claude")
                                 .font(.system(size: 9.5))
@@ -382,19 +405,19 @@ public struct SettingsView: View {
                     
                     Spacer()
                     
-                    if appState?.updateAvailable == true {
-                        if appState?.isSelfUpdating == true {
+                    if appState.updateAvailable {
+                        if appState.isSelfUpdating {
                             HStack(spacing: 6) {
                                 ProgressView()
                                     .scaleEffect(0.6)
                                     .frame(width: 14, height: 14)
-                                Text(appState?.selfUpdateProgressText ?? "업데이트 중...")
+                                Text(appState.selfUpdateProgressText.isEmpty ? "업데이트 중..." : appState.selfUpdateProgressText)
                                     .font(.system(size: 10))
                                     .foregroundColor(.secondary)
                             }
                         } else {
                             Button("지금 업데이트") {
-                                appState?.startSelfUpdate()
+                                appState.startSelfUpdate()
                             }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.small)
@@ -402,9 +425,9 @@ public struct SettingsView: View {
                         }
                     } else {
                         Button(action: {
-                            appState?.checkForUpdates(manual: true)
+                            appState.checkForUpdates(manual: true)
                         }) {
-                            if appState?.isCheckingUpdate == true {
+                            if appState.isCheckingUpdate {
                                 ProgressView()
                                     .scaleEffect(0.6)
                                     .frame(width: 14, height: 14)
@@ -413,11 +436,11 @@ public struct SettingsView: View {
                                     .font(.system(size: 11))
                             }
                         }
-                        .disabled(appState?.isCheckingUpdate == true)
+                        .disabled(appState.isCheckingUpdate)
                     }
                     
                     Button("새로고침") {
-                        appState?.refreshAll()
+                        appState.refreshAll()
                     }
                     .font(.system(size: 11))
                 }
@@ -426,7 +449,7 @@ public struct SettingsView: View {
         .padding(16)
         .frame(width: 460, height: 600)
         .onDisappear {
-            appState?.updateMenuBar()
+            appState.updateMenuBar()
         }
     }
 }
