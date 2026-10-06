@@ -18,6 +18,8 @@ public class ClaudeService {
         if isFetching {
             if let cached = lastKnownValidUsage {
                 completion(cached)
+            } else {
+                completion(ClaudeUsage.initial)
             }
             return
         }
@@ -28,8 +30,14 @@ public class ClaudeService {
             if usage.isConnected {
                 self?.lastKnownValidUsage = usage
                 usage.saveCached()
+                completion(usage)
+            } else if var cached = self?.lastKnownValidUsage, cached.isConnected {
+                cached.lastUpdated = Date()
+                cached.isChecking = false
+                completion(cached)
+            } else {
+                completion(usage)
             }
-            completion(usage)
         }
         
         let key = self.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -68,15 +76,21 @@ public class ClaudeService {
     
     private func checkClaudeCliAuth(completion: @escaping (ClaudeUsage) -> Void) {
         guard let binary = findClaudeBinary() else {
-            DispatchQueue.main.async {
-                completion(ClaudeUsage(
-                    planName: "미연동",
-                    usedPercent: 0.0,
-                    resetsAt: nil,
-                    lastUpdated: Date(),
-                    isConnected: false,
-                    errorMessage: "Claude 미연동 (CLI 미설치 또는 API 키 필요)"
-                ))
+            if var cached = self.lastKnownValidUsage, cached.isConnected {
+                cached.lastUpdated = Date()
+                cached.isChecking = false
+                DispatchQueue.main.async { completion(cached) }
+            } else {
+                DispatchQueue.main.async {
+                    completion(ClaudeUsage(
+                        planName: "미연동",
+                        usedPercent: 0.0,
+                        resetsAt: nil,
+                        lastUpdated: Date(),
+                        isConnected: false,
+                        errorMessage: "Claude 미연동 (CLI 미설치 또는 API 키 필요)"
+                    ))
+                }
             }
             return
         }
@@ -97,7 +111,7 @@ public class ClaudeService {
             var didComplete = false
             
             let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
-            timer.schedule(deadline: .now() + 6.0)
+            timer.schedule(deadline: .now() + 12.0)
             timer.setEventHandler {
                 if !didComplete {
                     didComplete = true
@@ -144,27 +158,35 @@ public class ClaudeService {
                 didComplete = true
                 timer.cancel()
                 
-                var isLoggedIn = false
                 if let json = try? JSONSerialization.jsonObject(with: outputData) as? [String: Any],
                    let loggedIn = json["loggedIn"] as? Bool {
-                    isLoggedIn = loggedIn
-                }
-                
-                if !isLoggedIn {
-                    UserDefaults.standard.removeObject(forKey: "catpacity_claude_usage_cache")
-                    self.lastKnownValidUsage = nil
-                    DispatchQueue.main.async {
-                        completion(ClaudeUsage(
-                            planName: "구독 없음",
-                            usedPercent: 0.0,
-                            resetsAt: nil,
-                            lastUpdated: Date(),
-                            isConnected: false,
-                            errorMessage: "Claude 미연동 (로그아웃됨 또는 구독 없음)",
-                            isChecking: false
-                        ))
+                    if !loggedIn {
+                        // Explicitly confirmed logged out
+                        UserDefaults.standard.removeObject(forKey: "catpacity_claude_usage_cache")
+                        self.lastKnownValidUsage = nil
+                        DispatchQueue.main.async {
+                            completion(ClaudeUsage(
+                                planName: "구독 없음",
+                                usedPercent: 0.0,
+                                resetsAt: nil,
+                                lastUpdated: Date(),
+                                isConnected: false,
+                                errorMessage: "Claude 미연동 (로그아웃됨 또는 구독 없음)",
+                                isChecking: false
+                            ))
+                        }
+                        return
                     }
-                    return
+                } else {
+                    // Non-JSON or warning output from CLI: keep cached connection alive if possible
+                    if var cached = self.lastKnownValidUsage, cached.isConnected {
+                        cached.lastUpdated = Date()
+                        cached.isChecking = false
+                        DispatchQueue.main.async {
+                            completion(cached)
+                        }
+                        return
+                    }
                 }
                 
                 // Active login confirmed, inspect ~/.claude.json for plan details

@@ -3,6 +3,26 @@
 All notable changes to **Catpacity** will be documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.7] - 2026-10-06
+
+### 🛡️ CLI 연동 안정성 및 간헐적 '미연동' 깜빡임 완벽 개선
+- **OpenAI Codex RPC 통신 버퍼링 & 캐시 보존 강화**:
+  - `codex app-server`의 대용량 JSON 응답(`rate-1`, 리셋권 데이터 포함 약 1.2KB) 수신 시 청크 단위 분할로 인해 발생하던 불완전한 JSON 파싱 오류 해결 (완전한 줄바꿈 `\n` 기준 라인 버퍼링 적용).
+  - 요청 중복 전송 방지 플래그(`hasSentRateRequest`) 및 스레드 동기화 락(`NSLock`) 적용.
+  - RPC 타임아웃을 8초에서 15초로 대폭 완화.
+  - 일시적인 CLI 지연이나 프로세스 오류 발생 시에도 기존에 인증된 정상 연결 캐시(`lastKnownValidUsage`)를 유지하여 화면이 '미연동'으로 바뀌지 않도록 방어.
+  - 리셋권 사용 RPC(`consumeResetCredit`) 역시 동일한 버퍼링 및 15초 타임아웃 보호 적용.
+- **Google Gemini (Antigravity CLI) 연동 안정화**:
+  - `agy -p /quota` 호출 타임아웃을 12초에서 18초로 연장하여 Mac 부하 상태에서도 안전하게 응답 수신.
+  - `google_accounts.json` 파일에서 `active` 계정이 null인 경우에도 과거 로그인 이력(`old`)을 정상 탐색하여 사용자 계정(`Gemini (이메일)`) 자동 매칭.
+  - Antigravity 할당량 출력의 로컬 타임존 날짜(`yyyy-MM-dd HH:mm KST`)를 정밀 파싱하여 리셋 시간 정상 표시.
+  - 일시적인 CLI 응답 지연 시 직전 정상 캐시를 보존하여 '미연동'으로 튕기는 문제 차단.
+- **Anthropic Claude CLI 인증 복원력 강화**:
+  - 인증 확인 프로세스 타임아웃을 6초에서 12초로 연장.
+  - 명시적인 로그아웃(`loggedIn == false`)이 아닌 일시적인 CLI 경고 출력이나 오류 시에는 캐시를 즉시 삭제하지 않고 기존 유효 연결을 보존.
+
+---
+
 ## [1.3.6] - 2026-09-23
 
 ### 🎟️ OpenAI Codex Rate Limit Reset Credits Integration

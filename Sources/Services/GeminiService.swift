@@ -24,6 +24,8 @@ public class GeminiService {
         if isFetching {
             if let cached = lastKnownValidUsage {
                 completion(cached)
+            } else {
+                completion(GeminiUsage.initial)
             }
             return
         }
@@ -34,8 +36,14 @@ public class GeminiService {
             if usage.isConnected {
                 self?.lastKnownValidUsage = usage
                 usage.saveCached()
+                completion(usage)
+            } else if var cached = self?.lastKnownValidUsage, cached.isConnected {
+                cached.lastUpdated = Date()
+                cached.isChecking = false
+                completion(cached)
+            } else {
+                completion(usage)
             }
-            completion(usage)
         }
         
         let key = self.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -91,7 +99,7 @@ public class GeminiService {
             
             var didComplete = false
             let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
-            timer.schedule(deadline: .now() + 12.0)
+            timer.schedule(deadline: .now() + 18.0)
             timer.setEventHandler {
                 if !didComplete {
                     didComplete = true
@@ -135,11 +143,51 @@ public class GeminiService {
         }
     }
     
-    private func parseAgyQuotaOutput(output: String, completion: @escaping (GeminiUsage) -> Void) {
+    private func parseAgyDate(_ str: String) -> Date? {
         let isoFormatter = ISO8601DateFormatter()
+        if let d = isoFormatter.date(from: str) { return d }
         let isoFracFormatter = ISO8601DateFormatter()
         isoFracFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = isoFracFormatter.date(from: str) { return d }
         
+        let parts = str.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+        if parts.count >= 3 {
+            let datePart = parts[0]
+            let timePart = parts[1]
+            let tzPart = parts[2]
+            let df = DateFormatter()
+            df.locale = Locale(identifier: "en_US_POSIX")
+            df.dateFormat = "yyyy-MM-dd HH:mm"
+            if let tz = TimeZone(abbreviation: tzPart) ?? TimeZone(identifier: tzPart) {
+                df.timeZone = tz
+            }
+            return df.date(from: "\(datePart) \(timePart)")
+        } else if parts.count == 2 {
+            let df = DateFormatter()
+            df.locale = Locale(identifier: "en_US_POSIX")
+            df.dateFormat = "yyyy-MM-dd HH:mm"
+            return df.date(from: str)
+        }
+        return nil
+    }
+    
+    private func detectGoogleAccountEmail() -> String? {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let accountsPath = home.appendingPathComponent(".gemini/google_accounts.json").path
+        guard let data = FileManager.default.contents(atPath: accountsPath),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        if let active = json["active"] as? String, !active.isEmpty {
+            return active
+        }
+        if let old = json["old"] as? [String], let first = old.first, !first.isEmpty {
+            return first
+        }
+        return nil
+    }
+    
+    private func parseAgyQuotaOutput(output: String, completion: @escaping (GeminiUsage) -> Void) {
         var fiveHourRemaining: Double? = nil
         var fiveHourResetDate: Date? = nil
         var weeklyRemaining: Double? = nil
@@ -161,12 +209,12 @@ public class GeminiService {
             let modelName = parts[0]
             let limitType = parts[1]
             let pctString = parts[2].replacingOccurrences(of: "%", with: "")
-            let dateString = parts[3]
+            let dateString = parts[3...].joined(separator: " ")
             
             guard modelName.lowercased().contains("gemini") else { continue }
             
             let remainingPct = Double(pctString)
-            let parsedDate = isoFormatter.date(from: dateString) ?? isoFracFormatter.date(from: dateString)
+            let parsedDate = parseAgyDate(dateString)
             
             if limitType.lowercased().contains("five hour") {
                 fiveHourRemaining = remainingPct
@@ -183,16 +231,7 @@ public class GeminiService {
             return
         }
         
-        // Active account email detection
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let accountsPath = home.appendingPathComponent(".gemini/google_accounts.json").path
-        var activeAccount: String? = nil
-        if let data = FileManager.default.contents(atPath: accountsPath),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let active = json["active"] as? String, !active.isEmpty {
-            activeAccount = active
-        }
-        
+        let activeAccount = detectGoogleAccountEmail()
         let planLabel: String
         if let email = activeAccount {
             planLabel = "Gemini (\(email))"
@@ -224,31 +263,23 @@ public class GeminiService {
     }
     
     private func checkLocalGoogleCli(completion: @escaping (GeminiUsage) -> Void) {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let accountsPath = home.appendingPathComponent(".gemini/google_accounts.json").path
-        
-        var activeAccount: String? = nil
-        if let data = FileManager.default.contents(atPath: accountsPath),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let active = json["active"] as? String, !active.isEmpty {
-            activeAccount = active
+        // 1. If we have a previously cached valid usage, preserve it so temporary blips don't cause '미연동'!
+        if var cached = self.lastKnownValidUsage, cached.isConnected {
+            cached.lastUpdated = Date()
+            cached.isChecking = false
+            DispatchQueue.main.async {
+                completion(cached)
+            }
+            return
         }
         
-        if let email = activeAccount {
-            // If we have a previously cached valid usage, preserve it so temporary blips don't cause '미연동'!
-            if var cached = self.lastKnownValidUsage, cached.isConnected {
-                cached.lastUpdated = Date()
-                cached.isChecking = false
-                DispatchQueue.main.async {
-                    completion(cached)
-                }
-                return
-            }
-            
-            // First time loading (no cache yet)
+        let activeAccount = detectGoogleAccountEmail()
+        
+        if activeAccount != nil || findAgyBinary() != nil {
+            let label = activeAccount != nil ? "Gemini (\(activeAccount!))" : "Gemini (Antigravity)"
             DispatchQueue.main.async {
                 completion(GeminiUsage(
-                    planName: "Gemini (\(email))",
+                    planName: label,
                     usedPercent: 0.0,
                     usedRequests: nil,
                     limitRequests: nil,
@@ -277,7 +308,6 @@ public class GeminiService {
                     lastUpdated: Date(),
                     isConnected: false,
                     errorMessage: "Gemini 미연동 (Antigravity 또는 API 키 필요)",
-                    isChecking: false,
                     weeklyRemainingPercent: nil,
                     weeklyResetsAt: nil
                 ))

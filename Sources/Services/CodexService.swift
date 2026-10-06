@@ -5,26 +5,45 @@ public class CodexService {
     
     private var isFetching = false
     public var lastKnownValidUsage: CodexUsage? = CodexUsage.loadCached()
+    private let fetchLock = NSLock()
+    
+    private func setIsFetching(_ value: Bool) {
+        fetchLock.lock()
+        isFetching = value
+        fetchLock.unlock()
+    }
     
     public func fetchUsage(completion: @escaping (CodexUsage) -> Void) {
+        fetchLock.lock()
         if isFetching {
+            fetchLock.unlock()
             if let cached = lastKnownValidUsage {
                 completion(cached)
+            } else {
+                completion(CodexUsage.initial)
             }
             return
         }
         isFetching = true
+        fetchLock.unlock()
         
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            defer { self?.isFetching = false }
-            
             let codexBinary = self?.findCodexBinary()
             guard let binary = codexBinary, FileManager.default.fileExists(atPath: binary) else {
-                DispatchQueue.main.async {
-                    var usage = CodexUsage.initial
-                    usage.errorMessage = "Codex 미설치: 터미널에서 'npm i -g @openai/codex' 실행"
-                    usage.isChecking = false
-                    completion(usage)
+                self?.setIsFetching(false)
+                if var cached = self?.lastKnownValidUsage, cached.isConnected {
+                    cached.lastUpdated = Date()
+                    cached.isChecking = false
+                    DispatchQueue.main.async {
+                        completion(cached)
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        var usage = CodexUsage.initial
+                        usage.errorMessage = "Codex 미설치: 터미널에서 'npm i -g @openai/codex' 실행"
+                        usage.isChecking = false
+                        completion(usage)
+                    }
                 }
                 return
             }
@@ -40,65 +59,99 @@ public class CodexService {
             process.standardOutput = outPipe
             process.standardError = Pipe() // Silence stderr
             
-            var receivedData = Data()
+            var textBuffer = ""
+            var hasSentRateRequest = false
+            let stateLock = NSLock()
             var didComplete = false
             
             let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
-            timer.schedule(deadline: .now() + 8.0)
-            timer.setEventHandler {
-                if !didComplete {
-                    didComplete = true
-                    process.terminate()
-                    if var cached = self?.lastKnownValidUsage, cached.isConnected {
-                        cached.lastUpdated = Date()
-                        cached.isChecking = false
-                        DispatchQueue.main.async {
-                            completion(cached)
-                        }
-                    } else {
-                        DispatchQueue.main.async {
-                            var usage = CodexUsage.initial
-                            usage.errorMessage = "요청 시간 초과 (Timeout)"
-                            usage.isChecking = false
-                            completion(usage)
-                        }
-                    }
+            timer.schedule(deadline: .now() + 15.0)
+            
+            let finishWith: (CodexUsage) -> Void = { [weak self] usage in
+                stateLock.lock()
+                guard !didComplete else {
+                    stateLock.unlock()
+                    return
                 }
+                didComplete = true
+                stateLock.unlock()
+                
+                timer.cancel()
+                outPipe.fileHandleForReading.readabilityHandler = nil
+                if process.isRunning {
+                    process.terminate()
+                }
+                self?.setIsFetching(false)
+                
+                var finalUsage = usage
+                if finalUsage.isConnected {
+                    finalUsage.isChecking = false
+                    self?.lastKnownValidUsage = finalUsage
+                    finalUsage.saveCached()
+                } else if var cached = self?.lastKnownValidUsage, cached.isConnected {
+                    // Gracefully preserve cached valid connection on transient blips
+                    cached.lastUpdated = Date()
+                    cached.isChecking = false
+                    finalUsage = cached
+                }
+                
+                DispatchQueue.main.async {
+                    completion(finalUsage)
+                }
+            }
+            
+            timer.setEventHandler {
+                var timeoutUsage = CodexUsage.initial
+                timeoutUsage.errorMessage = "요청 시간 초과 (Timeout)"
+                timeoutUsage.isChecking = false
+                timeoutUsage.isConnected = false
+                finishWith(timeoutUsage)
             }
             timer.resume()
             
             outPipe.fileHandleForReading.readabilityHandler = { handle in
                 let chunk = handle.availableData
                 if chunk.isEmpty { return }
-                receivedData.append(chunk)
+                guard let text = String(data: chunk, encoding: .utf8) else { return }
                 
-                if let string = String(data: receivedData, encoding: .utf8) {
-                    let lines = string.components(separatedBy: "\n")
-                    for line in lines {
-                        if line.contains("\"id\":\"rate-1\"") {
-                            timer.cancel()
-                            if !didComplete {
-                                didComplete = true
-                                outPipe.fileHandleForReading.readabilityHandler = nil
-                                process.terminate()
-                                
-                                var usage = self?.parseResponse(line) ?? CodexUsage.initial
-                                if usage.isConnected {
-                                    usage.isChecking = false
-                                    self?.lastKnownValidUsage = usage
-                                    usage.saveCached()
-                                }
-                                DispatchQueue.main.async {
-                                    completion(usage)
-                                }
-                            }
-                            return
-                        } else if line.contains("\"id\":\"init-1\"") {
-                            let req = "{\"jsonrpc\":\"2.0\",\"id\":\"rate-1\",\"method\":\"account/rateLimits/read\",\"params\":{}}\n"
-                            if let data = req.data(using: .utf8) {
-                                inPipe.fileHandleForWriting.write(data)
-                            }
-                        }
+                var linesToProcess: [String] = []
+                var shouldSendRateReq = false
+                
+                stateLock.lock()
+                if didComplete {
+                    stateLock.unlock()
+                    return
+                }
+                textBuffer.append(text)
+                
+                while let newlineRange = textBuffer.range(of: "\n") {
+                    let line = String(textBuffer[..<newlineRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                    textBuffer = String(textBuffer[newlineRange.upperBound...])
+                    if !line.isEmpty {
+                        linesToProcess.append(line)
+                    }
+                }
+                
+                for line in linesToProcess {
+                    if !hasSentRateRequest && line.contains("\"id\":\"init-1\"") {
+                        hasSentRateRequest = true
+                        shouldSendRateReq = true
+                    }
+                }
+                stateLock.unlock()
+                
+                if shouldSendRateReq {
+                    let req = "{\"jsonrpc\":\"2.0\",\"id\":\"rate-1\",\"method\":\"account/rateLimits/read\",\"params\":{}}\n"
+                    if let data = req.data(using: .utf8) {
+                        inPipe.fileHandleForWriting.write(data)
+                    }
+                }
+                
+                for line in linesToProcess {
+                    if line.contains("\"id\":\"rate-1\"") {
+                        let parsed = self?.parseResponse(line) ?? CodexUsage.initial
+                        finishWith(parsed)
+                        return
                     }
                 }
             }
@@ -110,24 +163,11 @@ public class CodexService {
                     inPipe.fileHandleForWriting.write(data)
                 }
             } catch {
-                timer.cancel()
-                if !didComplete {
-                    didComplete = true
-                    if var cached = self?.lastKnownValidUsage, cached.isConnected {
-                        cached.lastUpdated = Date()
-                        cached.isChecking = false
-                        DispatchQueue.main.async {
-                            completion(cached)
-                        }
-                    } else {
-                        DispatchQueue.main.async {
-                            var usage = CodexUsage.initial
-                            usage.errorMessage = error.localizedDescription
-                            usage.isChecking = false
-                            completion(usage)
-                        }
-                    }
-                }
+                var errUsage = CodexUsage.initial
+                errUsage.errorMessage = error.localizedDescription
+                errUsage.isChecking = false
+                errUsage.isConnected = false
+                finishWith(errUsage)
             }
         }
     }
@@ -306,67 +346,100 @@ public class CodexService {
             process.standardOutput = outPipe
             process.standardError = Pipe()
             
-            var receivedData = Data()
+            var textBuffer = ""
+            var hasSentConsumeRequest = false
+            let stateLock = NSLock()
             var didComplete = false
             
             let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
-            timer.schedule(deadline: .now() + 8.0)
-            timer.setEventHandler {
-                if !didComplete {
-                    didComplete = true
-                    process.terminate()
-                    DispatchQueue.main.async {
-                        completion(false, "요청 시간 초과")
-                    }
+            timer.schedule(deadline: .now() + 15.0)
+            
+            let finishWith: (Bool, String?) -> Void = { [weak self] success, errMsg in
+                stateLock.lock()
+                guard !didComplete else {
+                    stateLock.unlock()
+                    return
                 }
+                didComplete = true
+                stateLock.unlock()
+                
+                timer.cancel()
+                outPipe.fileHandleForReading.readabilityHandler = nil
+                if process.isRunning {
+                    process.terminate()
+                }
+                
+                DispatchQueue.main.async {
+                    if success {
+                        self?.fetchUsage { _ in }
+                    }
+                    completion(success, errMsg)
+                }
+            }
+            
+            timer.setEventHandler {
+                finishWith(false, "요청 시간 초과 (Timeout)")
             }
             timer.resume()
             
             outPipe.fileHandleForReading.readabilityHandler = { handle in
                 let chunk = handle.availableData
                 if chunk.isEmpty { return }
-                receivedData.append(chunk)
+                guard let text = String(data: chunk, encoding: .utf8) else { return }
                 
-                if let string = String(data: receivedData, encoding: .utf8) {
-                    let lines = string.components(separatedBy: "\n")
-                    for line in lines {
-                        if line.contains("\"id\":\"consume-1\"") {
-                            timer.cancel()
-                            if !didComplete {
-                                didComplete = true
-                                outPipe.fileHandleForReading.readabilityHandler = nil
-                                process.terminate()
-                                
-                                var success = false
-                                var errMsg: String? = nil
-                                if let data = line.data(using: .utf8),
-                                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                                    if let res = json["result"] as? [String: Any], res["outcome"] as? String == "reset" {
-                                        success = true
-                                    } else if let err = json["error"] as? [String: Any] {
-                                        errMsg = err["message"] as? String ?? "리셋 처리 실패"
-                                    } else {
-                                        errMsg = "알 수 없는 응답"
-                                    }
-                                } else {
-                                    errMsg = "응답 파싱 실패"
-                                }
-                                
-                                DispatchQueue.main.async {
-                                    if success {
-                                        self?.fetchUsage { _ in }
-                                    }
-                                    completion(success, errMsg)
-                                }
+                var linesToProcess: [String] = []
+                var shouldSendConsumeReq = false
+                
+                stateLock.lock()
+                if didComplete {
+                    stateLock.unlock()
+                    return
+                }
+                textBuffer.append(text)
+                
+                while let newlineRange = textBuffer.range(of: "\n") {
+                    let line = String(textBuffer[..<newlineRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                    textBuffer = String(textBuffer[newlineRange.upperBound...])
+                    if !line.isEmpty {
+                        linesToProcess.append(line)
+                    }
+                }
+                
+                for line in linesToProcess {
+                    if !hasSentConsumeRequest && line.contains("\"id\":\"init-1\"") {
+                        hasSentConsumeRequest = true
+                        shouldSendConsumeReq = true
+                    }
+                }
+                stateLock.unlock()
+                
+                if shouldSendConsumeReq {
+                    let idempotencyKey = UUID().uuidString
+                    let req = "{\"jsonrpc\":\"2.0\",\"id\":\"consume-1\",\"method\":\"account/rateLimitResetCredit/consume\",\"params\":{\"idempotencyKey\":\"\(idempotencyKey)\"}}\n"
+                    if let data = req.data(using: .utf8) {
+                        inPipe.fileHandleForWriting.write(data)
+                    }
+                }
+                
+                for line in linesToProcess {
+                    if line.contains("\"id\":\"consume-1\"") {
+                        var success = false
+                        var errMsg: String? = nil
+                        if let data = line.data(using: .utf8),
+                           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                            if let res = json["result"] as? [String: Any], res["outcome"] as? String == "reset" {
+                                success = true
+                            } else if let err = json["error"] as? [String: Any] {
+                                errMsg = err["message"] as? String ?? "리셋 처리 실패"
+                            } else {
+                                errMsg = "알 수 없는 응답"
                             }
-                            return
-                        } else if line.contains("\"id\":\"init-1\"") {
-                            let idempotencyKey = UUID().uuidString
-                            let req = "{\"jsonrpc\":\"2.0\",\"id\":\"consume-1\",\"method\":\"account/rateLimitResetCredit/consume\",\"params\":{\"idempotencyKey\":\"\(idempotencyKey)\"}}\n"
-                            if let data = req.data(using: .utf8) {
-                                inPipe.fileHandleForWriting.write(data)
-                            }
+                        } else {
+                            errMsg = "응답 파싱 실패"
                         }
+                        
+                        finishWith(success, errMsg)
+                        return
                     }
                 }
             }
@@ -378,13 +451,7 @@ public class CodexService {
                     inPipe.fileHandleForWriting.write(data)
                 }
             } catch {
-                timer.cancel()
-                if !didComplete {
-                    didComplete = true
-                    DispatchQueue.main.async {
-                        completion(false, error.localizedDescription)
-                    }
-                }
+                finishWith(false, error.localizedDescription)
             }
         }
     }
