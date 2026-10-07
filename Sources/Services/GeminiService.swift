@@ -48,10 +48,30 @@ public class GeminiService {
         
         let key = self.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        if !key.isEmpty {
+        // 1순위: Antigravity CLI 및 구글 계정 쿼터 확인
+        if let agyBinary = findAgyBinary() {
+            fetchWithAgyCli(binary: agyBinary) { [weak self] agyUsage in
+                guard let self = self else { return }
+                
+                if agyUsage.isConnected {
+                    var finalUsage = agyUsage
+                    if !key.isEmpty {
+                        self.fetchApiCostOnly(key: key) { cost, tokens in
+                            finalUsage.apiEstimatedCost = cost
+                            finalUsage.apiUsedTokens = tokens
+                            completionWrapper(finalUsage)
+                        }
+                    } else {
+                        completionWrapper(finalUsage)
+                    }
+                } else if !key.isEmpty {
+                    self.fetchWithApiKey(key: key, completion: completionWrapper)
+                } else {
+                    self.checkLocalGoogleCli(completion: completionWrapper)
+                }
+            }
+        } else if !key.isEmpty {
             fetchWithApiKey(key: key, completion: completionWrapper)
-        } else if let agyBinary = findAgyBinary() {
-            fetchWithAgyCli(binary: agyBinary, completion: completionWrapper)
         } else {
             checkLocalGoogleCli(completion: completionWrapper)
         }
@@ -418,5 +438,31 @@ public class GeminiService {
         comp.second = 0
         
         return cal.date(from: comp) ?? now.addingTimeInterval(TimeInterval(intervalHours * 3600))
+    }
+    
+    private func fetchApiCostOnly(key: String, completion: @escaping (Double?, Int?) -> Void) {
+        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models?key=\(key)") else {
+            completion(nil, nil)
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 6.0
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                let remainingTok = httpResponse.value(forHTTPHeaderField: "x-ratelimit-remaining-tokens").flatMap { Int($0) }
+                let limitTok = httpResponse.value(forHTTPHeaderField: "x-ratelimit-limit-tokens").flatMap { Int($0) }
+                let usedTok = (limitTok != nil && remainingTok != nil && limitTok! >= remainingTok!) ? (limitTok! - remainingTok!) : nil
+                let cost = usedTok != nil ? Double(usedTok!) * 0.000003 : nil
+                DispatchQueue.main.async {
+                    completion(cost, usedTok)
+                }
+            } else {
+                DispatchQueue.main.async {
+                    completion(nil, nil)
+                }
+            }
+        }.resume()
     }
 }

@@ -320,7 +320,7 @@ public struct SettingsView: View {
                 ApiKeyInputRow(
                     title: "Gemini API 키 (선택사항)",
                     subtitle: "미입력 시 Antigravity CLI 및 계정 쿼터 자동 연동",
-                    placeholder: "AIzaSy...",
+                    placeholder: "Gemini API 키 입력...",
                     apiKey: $geminiApiKey,
                     onCommit: { appState.refreshGemini() }
                 )
@@ -330,7 +330,7 @@ public struct SettingsView: View {
                 ApiKeyInputRow(
                     title: "Claude API 키 (선택사항)",
                     subtitle: "미입력 시 로컬 Claude Code 로그인 계정 자동 감지",
-                    placeholder: "sk-ant-api...",
+                    placeholder: "Claude API 키 입력...",
                     apiKey: $claudeApiKey,
                     onCommit: { appState.refreshClaude() }
                 )

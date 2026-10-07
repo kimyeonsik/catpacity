@@ -42,7 +42,32 @@ public class ClaudeService {
         
         let key = self.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        if !key.isEmpty {
+        // 1순위: 로컬 Claude CLI / 계정 구독 확인
+        if findClaudeBinary() != nil {
+            checkClaudeCliAuth { [weak self] cliUsage in
+                guard let self = self else { return }
+                
+                // 로컬 구독(Pro / Max)이 유효하면 CLI 구독 정보를 최우선 적용
+                if cliUsage.isConnected && (cliUsage.planName.contains("Pro") || cliUsage.planName.contains("Max")) {
+                    var finalUsage = cliUsage
+                    if !key.isEmpty {
+                        self.fetchApiCostOnly(key: key) { cost, tokens in
+                            finalUsage.apiEstimatedCost = cost
+                            finalUsage.apiUsedTokens = tokens
+                            completionWrapper(finalUsage)
+                        }
+                    } else {
+                        completionWrapper(finalUsage)
+                    }
+                } else if !key.isEmpty {
+                    // 구독이 없거나 CLI 미로그인 상태인데 API 키가 있다면 API 키 모드로 전환
+                    self.fetchWithApiKey(key: key, completion: completionWrapper)
+                } else {
+                    completionWrapper(cliUsage)
+                }
+            }
+        } else if !key.isEmpty {
+            // CLI가 없고 API 키만 있는 경우
             fetchWithApiKey(key: key, completion: completionWrapper)
         } else {
             checkClaudeCliAuth(completion: completionWrapper)
@@ -316,5 +341,33 @@ public class ClaudeService {
         comp.second = 0
         
         return cal.date(from: comp) ?? now.addingTimeInterval(TimeInterval(intervalHours * 3600))
+    }
+    
+    private func fetchApiCostOnly(key: String, completion: @escaping (Double?, Int?) -> Void) {
+        guard let url = URL(string: "https://api.anthropic.com/v1/models") else {
+            completion(nil, nil)
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 6.0
+        request.setValue(key, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                let remainingTok = httpResponse.value(forHTTPHeaderField: "anthropic-ratelimit-tokens-remaining").flatMap { Int($0) }
+                let limitTok = httpResponse.value(forHTTPHeaderField: "anthropic-ratelimit-tokens-limit").flatMap { Int($0) }
+                let usedTokens = (limitTok != nil && remainingTok != nil && limitTok! >= remainingTok!) ? (limitTok! - remainingTok!) : nil
+                let cost = usedTokens != nil ? Double(usedTokens!) * 0.000009 : nil
+                DispatchQueue.main.async {
+                    completion(cost, usedTokens)
+                }
+            } else {
+                DispatchQueue.main.async {
+                    completion(nil, nil)
+                }
+            }
+        }.resume()
     }
 }

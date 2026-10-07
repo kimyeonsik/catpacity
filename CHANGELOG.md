@@ -3,6 +3,17 @@
 All notable changes to **Catpacity** will be documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-10-07
+
+### 🛡️ 로컬 CLI 구독 최우선 유지 및 API 키 동시 연동 로직 개선
+- **CLI 구독 세션 최우선 유지 로직 적용**:
+  - API 키를 입력했을 때 기존 로컬 CLI 구독(Claude Pro/Max, Google Antigravity) 세션을 덮어써서 즉시 종량제 모드로 변경되던 문제를 수정.
+  - API 키가 입력되어 있더라도 로컬 구독 세션이 활성화되어 있으면 항상 **[케이스 2] `[구독 정상 • API 대기]`**를 최우선 유지하며, 구독 한도가 0%로 소진된 경우에만 비로소 **[케이스 3] API 과금 게이지**로 자동 전환되도록 흐름 완벽 개선.
+- **API 키 입력창 Placeholder 명확화**:
+  - Gemini 및 Claude API 키 입력창 Placeholder를 보다 직관적인 안내 문구로 정돈.
+
+---
+
 ## [1.4.0] - 2026-10-07
 
 ### 🎛️ 구독 요금제 & API 키 연동 3단계 스마트 상태(케이스) 분기 및 소모량 게이지 전환
