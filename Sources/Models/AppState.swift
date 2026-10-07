@@ -20,6 +20,7 @@ public class AppState: ObservableObject {
     @Published public var isSelfUpdating: Bool = false
     @Published public var selfUpdateProgressText: String = ""
     @Published public var selfUpdateError: String? = nil
+    public var lastUpdateCheckTime: Date? = nil
     
     // Cat Breed Selection
     @Published public var selectedBreed: CatBreed = {
@@ -164,6 +165,7 @@ public class AppState: ObservableObject {
         if Date().timeIntervalSince(lastSyncTime) > 300 {
             refreshAll()
         }
+        checkAutoUpdateIfNeeded()
     }
     
     @objc private func handleSessionResignActive() {
@@ -207,6 +209,7 @@ public class AppState: ObservableObject {
             // Do not wake CPU to query external processes when screen is asleep
             guard !self.isScreenSleeping else { return }
             self.refreshAll()
+            self.checkAutoUpdateIfNeeded()
         }
         timer.tolerance = seconds * 0.1
         RunLoop.main.add(timer, forMode: .common)
@@ -504,9 +507,18 @@ public class AppState: ObservableObject {
         }
     }
     
+    public func checkAutoUpdateIfNeeded() {
+        // 백그라운드 자동 체크: 마지막 확인 후 1시간(3600초) 이상 경과했을 때만 체크
+        if let lastCheck = lastUpdateCheckTime, Date().timeIntervalSince(lastCheck) < 3600 {
+            return
+        }
+        checkForUpdates(manual: false)
+    }
+    
     public func checkForUpdates(manual: Bool = false) {
         if isCheckingUpdate { return }
         isCheckingUpdate = true
+        self.lastUpdateCheckTime = Date()
         if manual {
             updateStatusMessage = "최신 버전 확인 중..."
         }

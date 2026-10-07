@@ -10,6 +10,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Enforce accessory policy (menu bar agent)
         NSApp.setActivationPolicy(.accessory)
         
+        // Setup standard system Edit menu so Cmd+V, Cmd+C, Cmd+A work in text fields
+        setupStandardEditMenu()
+        
         // Prevent duplicate instances
         let bundleID = Bundle.main.bundleIdentifier ?? "com.yeonsik.catpacity"
         let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
@@ -113,6 +116,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
+        
+        // Auto-check for updates if needed
+        appState.checkAutoUpdateIfNeeded()
+    }
+    
+    private func setupStandardEditMenu() {
+        let mainMenu = NSMenu()
+        
+        let appMenuItem = NSMenuItem()
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "Quit Catpacity", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenuItem.submenu = appMenu
+        mainMenu.addItem(appMenuItem)
+        
+        let editMenuItem = NSMenuItem()
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        editMenu.addItem(NSMenuItem.separator())
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenuItem.submenu = editMenu
+        mainMenu.addItem(editMenuItem)
+        
+        NSApp.mainMenu = mainMenu
     }
     
     private func showContextMenu() {

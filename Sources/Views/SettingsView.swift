@@ -312,30 +312,28 @@ public struct SettingsView: View {
             .cornerRadius(8)
             
             // Section 4: Optional API Keys
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 Text("서비스 연동 설정 (선택사항)")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.accentColor)
                 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Gemini API 키 (선택사항 - AI Studio)")
-                        .font(.system(size: 10.5))
-                        .foregroundColor(.secondary)
-                    SecureField("미입력 시 Antigravity CLI 및 계정 쿼터 자동 연동", text: $geminiApiKey)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 11))
-                        .onChange(of: geminiApiKey) { _ in appState.refreshGemini() }
-                }
+                ApiKeyInputRow(
+                    title: "Gemini API 키 (선택사항)",
+                    subtitle: "미입력 시 Antigravity CLI 및 계정 쿼터 자동 연동",
+                    placeholder: "AIzaSy...",
+                    apiKey: $geminiApiKey,
+                    onCommit: { appState.refreshGemini() }
+                )
                 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Claude API 키 (선택사항 - Anthropic API)")
-                        .font(.system(size: 10.5))
-                        .foregroundColor(.secondary)
-                    SecureField("미입력 시 로컬 Claude Code 로그인 계정 자동 감지", text: $claudeApiKey)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 11))
-                        .onChange(of: claudeApiKey) { _ in appState.refreshClaude() }
-                }
+                Divider().opacity(0.4)
+                
+                ApiKeyInputRow(
+                    title: "Claude API 키 (선택사항)",
+                    subtitle: "미입력 시 로컬 Claude Code 로그인 계정 자동 감지",
+                    placeholder: "sk-ant-api...",
+                    apiKey: $claudeApiKey,
+                    onCommit: { appState.refreshClaude() }
+                )
             }
             .padding(10)
             .background(Color.primary.opacity(0.03))
@@ -453,3 +451,106 @@ public struct SettingsView: View {
         }
     }
 }
+
+struct ApiKeyInputRow: View {
+    let title: String
+    let subtitle: String
+    let placeholder: String
+    @Binding var apiKey: String
+    var onCommit: () -> Void
+    
+    @State private var isVisible: Bool = false
+    
+    private var maskedPreview: String {
+        let trimmed = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        if trimmed.count <= 10 {
+            let prefix = trimmed.prefix(3)
+            return "\(prefix)••• (\(trimmed.count)자)"
+        }
+        let prefix = trimmed.prefix(6)
+        let suffix = trimmed.suffix(4)
+        return "\(prefix)••••••••\(suffix) (\(trimmed.count)자)"
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                Spacer()
+                if !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(maskedPreview)
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundColor(.accentColor)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.accentColor.opacity(0.12))
+                        .cornerRadius(4)
+                }
+            }
+            
+            HStack(spacing: 6) {
+                Group {
+                    if isVisible {
+                        TextField(placeholder, text: $apiKey)
+                    } else {
+                        SecureField(placeholder, text: $apiKey)
+                    }
+                }
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 11, design: .monospaced))
+                .onChange(of: apiKey) { _ in
+                    onCommit()
+                }
+                
+                // 보기 / 가리기 토글 버튼
+                Button(action: {
+                    isVisible.toggle()
+                }) {
+                    Image(systemName: isVisible ? "eye.slash" : "eye")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .frame(width: 18, height: 18)
+                }
+                .buttonStyle(.borderless)
+                .help(isVisible ? "키 숨기기" : "키 보기")
+                
+                // 클립보드 붙여넣기 원클릭 버튼
+                Button(action: {
+                    if let clip = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), !clip.isEmpty {
+                        apiKey = clip
+                        onCommit()
+                    }
+                }) {
+                    Image(systemName: "doc.on.clipboard")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .frame(width: 18, height: 18)
+                }
+                .buttonStyle(.borderless)
+                .help("클립보드에서 붙여넣기")
+                
+                // 키 초기화 / 삭제 버튼
+                if !apiKey.isEmpty {
+                    Button(action: {
+                        apiKey = ""
+                        onCommit()
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                            .frame(width: 18, height: 18)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("키 삭제")
+                }
+            }
+            
+            Text(subtitle)
+                .font(.system(size: 9.5))
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
