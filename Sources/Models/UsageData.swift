@@ -13,6 +13,20 @@ public struct SubModelUsage: Identifiable, Codable {
     }
 }
 
+public enum ProviderUsageMode: Equatable {
+    /// 케이스 2: 구독 요금제가 있고 한도 여유 있음 (안전지대)
+    case subscriptionActive(remainingPercent: Double, resetsAt: Date?, hasApiKey: Bool)
+    
+    /// 케이스 3: 구독 요금제가 있고 한도가 모두 소진됨 (비상/과금 모드)
+    case subscriptionExhausted(resetsAt: Date?, hasApiKey: Bool, apiEstimatedCost: Double?, apiUsedTokens: Int?)
+    
+    /// 케이스 1: 구독 요금제가 없고 순수 API 키 종량제 모드
+    case payAsYouGoOnly(estimatedCost: Double, monthlyBudget: Double, usedTokens: Int?, remainingPercent: Double?)
+    
+    /// 미연동
+    case disconnected(message: String)
+}
+
 public struct RateLimitResetCredit: Identifiable, Codable {
     public var id: String
     public var resetType: String?
@@ -75,6 +89,17 @@ public struct CodexUsage: Codable {
     
     public var remainingPercent: Double {
         return max(0.0, 100.0 - usedPercent)
+    }
+    
+    public func currentMode() -> ProviderUsageMode {
+        guard isConnected else {
+            return .disconnected(message: errorMessage ?? "Codex 미연동")
+        }
+        if ordinaryUsageAllowed && remainingPercent > 0.0 {
+            return .subscriptionActive(remainingPercent: remainingPercent, resetsAt: resetsAt, hasApiKey: false)
+        } else {
+            return .subscriptionExhausted(resetsAt: resetsAt, hasApiKey: false, apiEstimatedCost: nil, apiUsedTokens: nil)
+        }
     }
     
     public init(
@@ -183,9 +208,36 @@ public struct GeminiUsage: Codable {
     
     public var weeklyRemainingPercent: Double?
     public var weeklyResetsAt: Date?
+    public var apiEstimatedCost: Double?
+    public var apiUsedTokens: Int?
     
     public var remainingPercent: Double {
         return max(0.0, 100.0 - usedPercent)
+    }
+    
+    public func currentMode(hasApiKey: Bool, monthlyBudget: Double = 50.0) -> ProviderUsageMode {
+        guard isConnected else {
+            if hasApiKey {
+                return .payAsYouGoOnly(estimatedCost: apiEstimatedCost ?? 0.0, monthlyBudget: monthlyBudget, usedTokens: apiUsedTokens, remainingPercent: remainingPercent)
+            }
+            return .disconnected(message: errorMessage ?? "Gemini 미연동")
+        }
+        let isSubscription = planName.contains("@") || planName.contains("Antigravity")
+        if isSubscription {
+            if remainingPercent > 0.0 {
+                return .subscriptionActive(remainingPercent: remainingPercent, resetsAt: resetsAt, hasApiKey: hasApiKey)
+            } else {
+                return .subscriptionExhausted(resetsAt: resetsAt, hasApiKey: hasApiKey, apiEstimatedCost: apiEstimatedCost, apiUsedTokens: apiUsedTokens)
+            }
+        } else if hasApiKey || planName.contains("API") {
+            return .payAsYouGoOnly(estimatedCost: apiEstimatedCost ?? 0.0, monthlyBudget: monthlyBudget, usedTokens: apiUsedTokens, remainingPercent: remainingPercent)
+        } else {
+            if remainingPercent > 0.0 {
+                return .subscriptionActive(remainingPercent: remainingPercent, resetsAt: resetsAt, hasApiKey: false)
+            } else {
+                return .subscriptionExhausted(resetsAt: resetsAt, hasApiKey: false, apiEstimatedCost: nil, apiUsedTokens: nil)
+            }
+        }
     }
     
     public static var initial: GeminiUsage {
@@ -207,7 +259,9 @@ public struct GeminiUsage: Codable {
             errorMessage: "확인 중...",
             isChecking: true,
             weeklyRemainingPercent: nil,
-            weeklyResetsAt: nil
+            weeklyResetsAt: nil,
+            apiEstimatedCost: nil,
+            apiUsedTokens: nil
         )
     }
 }
@@ -236,9 +290,36 @@ public struct ClaudeUsage: Codable {
     public var isConnected: Bool
     public var errorMessage: String?
     public var isChecking: Bool = false
+    public var apiEstimatedCost: Double?
+    public var apiUsedTokens: Int?
     
     public var remainingPercent: Double {
         return max(0.0, 100.0 - usedPercent)
+    }
+    
+    public func currentMode(hasApiKey: Bool, monthlyBudget: Double = 50.0) -> ProviderUsageMode {
+        guard isConnected else {
+            if hasApiKey {
+                return .payAsYouGoOnly(estimatedCost: apiEstimatedCost ?? 0.0, monthlyBudget: monthlyBudget, usedTokens: apiUsedTokens, remainingPercent: remainingPercent)
+            }
+            return .disconnected(message: errorMessage ?? "Claude 미연동")
+        }
+        let isSubscription = planName.contains("Pro") || planName.contains("Max")
+        if isSubscription {
+            if remainingPercent > 0.0 {
+                return .subscriptionActive(remainingPercent: remainingPercent, resetsAt: resetsAt, hasApiKey: hasApiKey)
+            } else {
+                return .subscriptionExhausted(resetsAt: resetsAt, hasApiKey: hasApiKey, apiEstimatedCost: apiEstimatedCost, apiUsedTokens: apiUsedTokens)
+            }
+        } else if hasApiKey || planName.contains("API") {
+            return .payAsYouGoOnly(estimatedCost: apiEstimatedCost ?? 0.0, monthlyBudget: monthlyBudget, usedTokens: apiUsedTokens, remainingPercent: remainingPercent)
+        } else {
+            if remainingPercent > 0.0 {
+                return .subscriptionActive(remainingPercent: remainingPercent, resetsAt: resetsAt, hasApiKey: false)
+            } else {
+                return .subscriptionExhausted(resetsAt: resetsAt, hasApiKey: false, apiEstimatedCost: nil, apiUsedTokens: nil)
+            }
+        }
     }
     
     public static var initial: ClaudeUsage {
@@ -254,7 +335,9 @@ public struct ClaudeUsage: Codable {
             lastUpdated: Date(),
             isConnected: false,
             errorMessage: "확인 중...",
-            isChecking: true
+            isChecking: true,
+            apiEstimatedCost: nil,
+            apiUsedTokens: nil
         )
     }
 }

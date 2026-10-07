@@ -41,6 +41,7 @@ public struct ProviderCardView: View {
     public let badgeText: String?
     public let badgeColor: Color
     public let customAction: ProviderCardAction?
+    public let usageMode: ProviderUsageMode?
     public let onRefresh: () -> Void
     
     public init(
@@ -56,6 +57,7 @@ public struct ProviderCardView: View {
         badgeText: String? = nil,
         badgeColor: Color = .purple,
         customAction: ProviderCardAction? = nil,
+        usageMode: ProviderUsageMode? = nil,
         onRefresh: @escaping () -> Void
     ) {
         self.iconName = iconName
@@ -70,14 +72,104 @@ public struct ProviderCardView: View {
         self.badgeText = badgeText
         self.badgeColor = badgeColor
         self.customAction = customAction
+        self.usageMode = usageMode
         self.onRefresh = onRefresh
     }
     
     public var remainingPercent: Double {
+        if let mode = usageMode {
+            switch mode {
+            case .subscriptionActive(let rem, _, _):
+                return rem
+            case .subscriptionExhausted:
+                return 0.0
+            case .payAsYouGoOnly(let cost, let budget, _, _):
+                let spentRatio = cost / max(1.0, budget)
+                return max(0.0, 100.0 - spentRatio * 100.0)
+            case .disconnected:
+                return 0.0
+            }
+        }
         return max(0.0, 100.0 - usedPercent)
     }
     
+    public var effectiveBadgeText: String? {
+        if let text = badgeText, !text.isEmpty {
+            return text
+        }
+        guard let mode = usageMode else { return nil }
+        switch mode {
+        case .subscriptionActive(_, _, let hasApiKey):
+            return hasApiKey ? "구독 정상 • API 대기" : "구독 정상"
+        case .subscriptionExhausted(_, let hasApiKey, _, _):
+            return hasApiKey ? "구독 소진 ➡️ API 과금" : "구독 소진"
+        case .payAsYouGoOnly:
+            return "API 종량제"
+        case .disconnected:
+            return nil
+        }
+    }
+    
+    public var effectiveBadgeColor: Color {
+        guard let mode = usageMode else { return badgeColor }
+        switch mode {
+        case .subscriptionActive(_, _, let hasApiKey):
+            return hasApiKey ? Color.blue : Color.blue
+        case .subscriptionExhausted(_, let hasApiKey, _, _):
+            return hasApiKey ? Color.orange : Color.red
+        case .payAsYouGoOnly:
+            return Color.purple
+        case .disconnected:
+            return badgeColor
+        }
+    }
+    
+    public var gaugeRatio: Double {
+        if let mode = usageMode {
+            switch mode {
+            case .subscriptionActive(let rem, _, _):
+                return max(0.0, min(100.0, rem)) / 100.0
+            case .subscriptionExhausted(_, let hasApiKey, let cost, _):
+                if hasApiKey {
+                    let currentCost = cost ?? 0.0
+                    let budget = 50.0
+                    let ratio = currentCost / budget
+                    return max(0.03, min(1.0, ratio))
+                } else {
+                    return 0.0
+                }
+            case .payAsYouGoOnly(let cost, let budget, _, _):
+                let spentRatio = cost / max(1.0, budget)
+                return max(0.03, min(1.0, spentRatio))
+            case .disconnected:
+                return 0.0
+            }
+        }
+        return max(0.0, min(1.0, remainingPercent / 100.0))
+    }
+    
     public var progressColor: Color {
+        if let mode = usageMode {
+            switch mode {
+            case .payAsYouGoOnly(let cost, let budget, _, _):
+                let spentRatio = cost / max(1.0, budget)
+                if spentRatio < 0.5 { return .blue }
+                if spentRatio < 0.8 { return .orange }
+                return .red
+            case .subscriptionExhausted(_, let hasApiKey, let cost, _):
+                if hasApiKey {
+                    let spentRatio = (cost ?? 0.0) / 50.0
+                    if spentRatio < 0.5 { return .orange }
+                    return .red
+                } else {
+                    return .red
+                }
+            case .subscriptionActive:
+                break
+            case .disconnected:
+                return .secondary
+            }
+        }
         switch remainingPercent {
         case 60...:   return .green
         case 30..<60: return .yellow
@@ -101,7 +193,7 @@ public struct ProviderCardView: View {
                 Spacer()
                 
                 HStack(spacing: 6) {
-                    if let badge = badgeText {
+                    if let badge = effectiveBadgeText {
                         Text(badge)
                             .font(.system(size: 9.5, weight: .bold))
                             .foregroundColor(.white)
@@ -109,7 +201,7 @@ public struct ProviderCardView: View {
                             .padding(.vertical, 2)
                             .background(
                                 Capsule()
-                                    .fill(badgeColor)
+                                    .fill(effectiveBadgeColor)
                             )
                     }
                     
@@ -131,19 +223,54 @@ public struct ProviderCardView: View {
                 // Progress Bar & Remaining Percentage
                 VStack(alignment: .leading, spacing: 5) {
                     HStack {
-                        Text("잔여량")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Text("\(String(format: "%.1f", remainingPercent))% 남음")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(progressColor)
-                        Text("(사용: \(String(format: "%.0f", usedPercent))%)")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
+                        if let mode = usageMode, case .payAsYouGoOnly(let cost, let budget, _, _) = mode {
+                            Text("월 사용 금액")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(String(format: "$%.2f / $%.0f", cost, budget))
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(progressColor)
+                            Text(String(format: "(%.1f%%)", min(100.0, cost / max(1.0, budget) * 100.0)))
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        } else if let mode = usageMode, case .subscriptionExhausted(_, let hasApiKey, let cost, _) = mode {
+                            if hasApiKey {
+                                Text("전환 후 API 지출")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                let currentCost = cost ?? 0.0
+                                Text(String(format: "$%.2f / $50", currentCost))
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(progressColor)
+                                Text(String(format: "(%.1f%%)", min(100.0, currentCost / 50.0 * 100.0)))
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text("구독 한도")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("0.0% 남음 (소진됨)")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.red)
+                            }
+                        } else {
+                            Text("잔여량")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text("\(String(format: "%.1f", remainingPercent))% 남음")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(progressColor)
+                            Text("(사용: \(String(format: "%.0f", usedPercent))%)")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        }
                     }
                     
-                    // Capacity Gauge Bar (Fills according to remaining capacity)
+                    // Capacity Gauge Bar (Fills according to remaining capacity or expense ratio)
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 4)
@@ -158,42 +285,76 @@ public struct ProviderCardView: View {
                                         endPoint: .trailing
                                     )
                                 )
-                                .frame(width: max(0, min(geo.size.width, geo.size.width * CGFloat(remainingPercent / 100.0))), height: 7)
+                                .frame(width: max(0, min(geo.size.width, geo.size.width * CGFloat(gaugeRatio))), height: 7)
                         }
                     }
                     .frame(height: 7)
                 }
                 
                 // Reset Countdown Info
-                HStack(spacing: 5) {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                    
-                    Text(resetLabel)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.secondary)
-                    
-                    Text(TimeFormatter.formatCountdown(until: resetsAt))
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.primary)
-                    
-                    if let resetDate = resetsAt {
-                        Text("(\(TimeFormatter.formatExactTime(resetDate)))")
-                            .font(.system(size: 9.5))
+                if resetsAt != nil || usageMode != nil {
+                    HStack(spacing: 5) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 10))
                             .foregroundColor(.secondary)
+                        
+                        Text(resetLabel)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.secondary)
+                        
+                        Text(TimeFormatter.formatCountdown(until: resetsAt))
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.primary)
+                        
+                        if let resetDate = resetsAt {
+                            Text("(\(TimeFormatter.formatExactTime(resetDate)))")
+                                .font(.system(size: 9.5))
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
                     }
-                    
-                    Spacer()
+                    .padding(.vertical, 2)
                 }
-                .padding(.vertical, 2)
                 
-                // Extra metadata rows (credits, models, etc.)
-                if !extraDetails.isEmpty {
+                // Mode-specific and extra metadata rows
+                let computedDetails: [String] = {
+                    var list: [String] = []
+                    if let mode = usageMode {
+                        switch mode {
+                        case .subscriptionActive(_, _, let hasApiKey):
+                            if hasApiKey {
+                                list.append("🔑 API 키 연동: 등록됨 (대기 상태)")
+                                list.append("💵 추가 과금: $0.00")
+                            }
+                        case .subscriptionExhausted(_, let hasApiKey, let cost, let tokens):
+                            if hasApiKey {
+                                list.append("⚡️ 현재 상태: API 키 호출 사용 중")
+                                if let c = cost {
+                                    list.append("💵 소모 금액: $\(String(format: "%.2f", c))")
+                                }
+                                if let t = tokens {
+                                    list.append("🔢 소모 토큰: \(t.formatted()) tokens")
+                                }
+                            }
+                        case .payAsYouGoOnly(let cost, let budget, let tokens, _):
+                            list.append("💵 이번 달 청구: $\(String(format: "%.2f", cost)) (잔여 예산: $\(String(format: "%.2f", max(0.0, budget - cost))))")
+                            if let t = tokens {
+                                list.append("🔢 소모 토큰: \(t.formatted()) tokens")
+                            }
+                        case .disconnected:
+                            break
+                        }
+                    }
+                    list.append(contentsOf: extraDetails)
+                    return list
+                }()
+                
+                if !computedDetails.isEmpty {
                     Divider()
                         .opacity(0.4)
                     
-                    ForEach(extraDetails, id: \.self) { detail in
+                    ForEach(computedDetails, id: \.self) { detail in
                         HStack(spacing: 4) {
                             Text("•")
                                 .foregroundColor(.secondary)

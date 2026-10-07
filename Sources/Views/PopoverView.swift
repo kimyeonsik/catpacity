@@ -44,12 +44,16 @@ public struct PopoverView: View {
         
         VStack(spacing: 12) {
             // Header: Dynamic Retro Animated Pixel Cat Graphic + Quote
+            let headerInfo = appState.catHeaderInfo
             CatIllustrationView(
                 stage: activeStage,
                 breed: appState.selectedBreed,
                 remainingPercent: activeRemaining,
                 animFrame: appState.currentAnimFrame,
-                targetLabel: "기준: \(appState.activeTargetLabel)"
+                targetLabel: "기준: \(appState.activeTargetLabel)",
+                customTitle: headerInfo.title,
+                customQuote: headerInfo.quote,
+                customBadge: headerInfo.badge
             )
 
             
@@ -141,6 +145,7 @@ public struct PopoverView: View {
                             badgeText: codex.isConnected && codex.resetCreditsAvailableCount > 0 ? "🎟️ 리셋권 \(codex.resetCreditsAvailableCount)장" : nil,
                             badgeColor: .purple,
                             customAction: resetAction,
+                            usageMode: codex.currentMode(),
                             onRefresh: {
                                 appState.refreshCodex()
                             }
@@ -150,6 +155,7 @@ public struct PopoverView: View {
                     if showGemini {
                         // Gemini Card
                         let gemini = appState.overallUsage.gemini
+                        let hasGeminiApiKey = !GeminiService.shared.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         let geminiResetLabel: String = {
                             if gemini.weeklyRemainingPercent != nil {
                                 if gemini.resetsAt != gemini.weeklyResetsAt {
@@ -171,6 +177,7 @@ public struct PopoverView: View {
                             errorMessage: gemini.errorMessage,
                             extraDetails: geminiDetails,
                             resetLabel: geminiResetLabel,
+                            usageMode: gemini.currentMode(hasApiKey: hasGeminiApiKey),
                             onRefresh: {
                                 appState.refreshGemini()
                             }
@@ -179,15 +186,19 @@ public struct PopoverView: View {
                     
                     if showClaude {
                         // Claude Card
+                        let claude = appState.overallUsage.claude
+                        let hasClaudeApiKey = !ClaudeService.shared.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        
                         ProviderCardView(
                             iconName: "brain.head.profile",
                             providerTitle: "Anthropic Claude",
-                            planName: appState.overallUsage.claude.planName,
-                            usedPercent: appState.overallUsage.claude.usedPercent,
-                            resetsAt: appState.overallUsage.claude.resetsAt,
-                            isConnected: appState.overallUsage.claude.isConnected,
-                            errorMessage: appState.overallUsage.claude.errorMessage,
+                            planName: claude.planName,
+                            usedPercent: claude.usedPercent,
+                            resetsAt: claude.resetsAt,
+                            isConnected: claude.isConnected,
+                            errorMessage: claude.errorMessage,
                             extraDetails: claudeDetails,
+                            usageMode: claude.currentMode(hasApiKey: hasClaudeApiKey),
                             onRefresh: {
                                 appState.refreshClaude()
                             }

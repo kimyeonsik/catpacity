@@ -84,6 +84,75 @@ public class AppState: ObservableObject {
         return CatStage.from(remainingPercent: activeRemainingPercent)
     }
 
+    public var activeProviderMode: ProviderUsageMode? {
+        let hasGeminiKey = !GeminiService.shared.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasClaudeKey = !ClaudeService.shared.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        
+        switch catStatusTarget {
+        case .codex:
+            return overallUsage.codex.currentMode()
+        case .gemini:
+            return overallUsage.gemini.currentMode(hasApiKey: hasGeminiKey)
+        case .claude:
+            return overallUsage.claude.currentMode(hasApiKey: hasClaudeKey)
+        case .min, .average:
+            // 만약 어느 하나라도 구독 소진 + API 키 가동 중이면 해당 긴급 상태 우선 반영
+            if overallUsage.claude.remainingPercent <= 0 && hasClaudeKey {
+                return overallUsage.claude.currentMode(hasApiKey: hasClaudeKey)
+            }
+            if overallUsage.gemini.remainingPercent <= 0 && hasGeminiKey {
+                return overallUsage.gemini.currentMode(hasApiKey: hasGeminiKey)
+            }
+            if overallUsage.codex.remainingPercent <= 0 {
+                return overallUsage.codex.currentMode()
+            }
+            return nil
+        }
+    }
+    
+    public var catHeaderInfo: (title: String, quote: String, badge: String) {
+        if let mode = activeProviderMode {
+            switch mode {
+            case .payAsYouGoOnly(let cost, let budget, _, _):
+                let spentRatio = cost / max(1.0, budget)
+                let title = "🏷️ 종량제 API 모드"
+                let badge = String(format: "$%.2f", cost)
+                let quote = spentRatio > 0.8
+                    ? "토큰이 많이 나가고 있다옹! 지갑 조심하라옹 💸"
+                    : "이번 달 예산 범위 안에서 알뜰하게 쓰는 중이다옹~ ☕️"
+                return (title, quote, badge)
+                
+            case .subscriptionExhausted(_, let hasApiKey, _, _):
+                if hasApiKey {
+                    let title = "🚨 비상 출동 고양이"
+                    let badge = "API 과금 중"
+                    let quote = "구독이 다 소진됐다옹! 지금부터 API 과금 시작이다옹 💸"
+                    return (title, quote, badge)
+                } else {
+                    let title = activeCatStage.title
+                    let badge = "방전 0%"
+                    let quote = overallUsage.codex.resetCreditsAvailableCount > 0
+                        ? "리셋권을 써서 날 깨워달라옹! 🎟️"
+                        : activeCatStage.quote
+                    return (title, quote, badge)
+                }
+                
+            case .subscriptionActive(let rem, _, let hasApiKey):
+                let title = activeCatStage.title
+                let badge = "잔여 \(Int(rem))%"
+                let quote = hasApiKey
+                    ? "구독 한도 넉넉하고 비상 API 키도 든든하다옹! 😸"
+                    : activeCatStage.quote
+                return (title, quote, badge)
+                
+            case .disconnected:
+                break
+            }
+        }
+        
+        return (activeCatStage.title, activeCatStage.quote, "잔여 \(Int(activeRemainingPercent))%")
+    }
+
     
     public weak var statusItem: NSStatusItem?
     private var refreshTimer: Timer?

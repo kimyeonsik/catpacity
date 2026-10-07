@@ -6,6 +6,9 @@ public struct CatIllustrationView: View {
     public let remainingPercent: Double
     public let animFrame: Int
     public let targetLabel: String
+    public let customTitle: String?
+    public let customQuote: String?
+    public let customBadge: String?
     
     @State private var localFrame: Int = 0
     private let popoverAnimTimer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
@@ -15,17 +18,26 @@ public struct CatIllustrationView: View {
         breed: CatBreed = .gingerTabby,
         remainingPercent: Double,
         animFrame: Int,
-        targetLabel: String = ""
+        targetLabel: String = "",
+        customTitle: String? = nil,
+        customQuote: String? = nil,
+        customBadge: String? = nil
     ) {
         self.stage = stage
         self.breed = breed
         self.remainingPercent = remainingPercent
         self.animFrame = animFrame
         self.targetLabel = targetLabel
+        self.customTitle = customTitle
+        self.customQuote = customQuote
+        self.customBadge = customBadge
     }
     
     public var body: some View {
         let displayFrame = animFrame > 0 ? animFrame : localFrame
+        let effectiveTitle = customTitle ?? stage.title
+        let effectiveQuote = customQuote ?? stage.quote
+        let effectiveBadge = customBadge ?? "잔여 \(Int(remainingPercent))%"
         
         VStack(spacing: 8) {
             ZStack {
@@ -71,14 +83,14 @@ public struct CatIllustrationView: View {
                         HStack(alignment: .center, spacing: 4) {
                             Text(breed.emoji)
                                 .font(.system(size: 13))
-                            Text(stage.title)
+                            Text(effectiveTitle)
                                 .font(.system(size: 13, weight: .bold))
                                 .foregroundColor(.primary)
                                 .fixedSize(horizontal: true, vertical: false)
                             
                             Spacer(minLength: 4)
                             
-                            Text("잔여 \(Int(remainingPercent))%")
+                            Text(effectiveBadge)
                                 .font(.system(size: 10.5, weight: .bold))
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 3)
@@ -108,7 +120,7 @@ public struct CatIllustrationView: View {
                         }
                         
                         // Row 3: Quote
-                        Text("\"\(stage.quote)\"")
+                        Text("\"\(effectiveQuote)\"")
                             .font(.system(size: 10.5))
                             .foregroundColor(.secondary)
                             .fixedSize(horizontal: false, vertical: true)

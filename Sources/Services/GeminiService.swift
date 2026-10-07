@@ -344,6 +344,8 @@ public class GeminiService {
                     }
                     
                     let nextReset = self.calculateNextRollingReset(intervalHours: 1)
+                    let usedTok = (limitTok != nil && remainingTok != nil && limitTok! >= remainingTok!) ? (limitTok! - remainingTok!) : nil
+                    let estimatedCost = usedTok != nil ? Double(usedTok!) * 0.000003 : nil
                     
                     DispatchQueue.main.async {
                         completion(GeminiUsage(
@@ -358,7 +360,9 @@ public class GeminiService {
                             isConnected: true,
                             errorMessage: nil,
                             weeklyRemainingPercent: nil,
-                            weeklyResetsAt: nil
+                            weeklyResetsAt: nil,
+                            apiEstimatedCost: estimatedCost,
+                            apiUsedTokens: usedTok
                         ))
                     }
                     return

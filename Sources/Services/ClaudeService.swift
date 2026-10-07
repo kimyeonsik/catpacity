@@ -281,6 +281,9 @@ public class ClaudeService {
                     }
                     
                     let nextReset = self.calculateNextRollingReset(intervalHours: 5)
+                    let usedTokens = (limitTok != nil && remainingTok != nil && limitTok! >= remainingTok!) ? (limitTok! - remainingTok!) : nil
+                    let estimatedCost = usedTokens != nil ? Double(usedTokens!) * 0.000009 : nil
+                    
                     DispatchQueue.main.async {
                         completion(ClaudeUsage(
                             planName: "Anthropic API",
@@ -288,7 +291,9 @@ public class ClaudeService {
                             resetsAt: nextReset,
                             lastUpdated: Date(),
                             isConnected: true,
-                            errorMessage: nil
+                            errorMessage: nil,
+                            apiEstimatedCost: estimatedCost,
+                            apiUsedTokens: usedTokens
                         ))
                     }
                     return
