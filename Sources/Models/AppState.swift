@@ -137,12 +137,10 @@ public class AppState: ObservableObject {
                     return (title, quote, badge)
                 }
                 
-            case .subscriptionActive(let rem, _, let hasApiKey):
+            case .subscriptionActive(let rem, _, _):
                 let title = activeCatStage.title
                 let badge = "잔여 \(Int(rem))%"
-                let quote = hasApiKey
-                    ? "구독 한도 넉넉하고 비상 API 키도 든든하다옹! 😸"
-                    : activeCatStage.quote
+                let quote = activeCatStage.quote
                 return (title, quote, badge)
                 
             case .disconnected:

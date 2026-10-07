@@ -99,12 +99,13 @@ public struct ProviderCardView: View {
         }
         guard let mode = usageMode else { return nil }
         switch mode {
-        case .subscriptionActive(_, _, let hasApiKey):
-            return hasApiKey ? "구독 정상 • API 대기" : "구독 정상"
+        case .subscriptionActive:
+            // 평소 구독 정상 상태일 때는 API 키 관련 배지나 문구를 일절 노출하지 않음
+            return nil
         case .subscriptionExhausted(_, let hasApiKey, _, _):
-            return hasApiKey ? "구독 소진 ➡️ API 과금" : "구독 소진"
+            return hasApiKey ? "⚡️ API 과금" : "한도 소진"
         case .payAsYouGoOnly:
-            return "API 종량제"
+            return "종량제 API"
         case .disconnected:
             return nil
         }
@@ -113,8 +114,8 @@ public struct ProviderCardView: View {
     public var effectiveBadgeColor: Color {
         guard let mode = usageMode else { return badgeColor }
         switch mode {
-        case .subscriptionActive(_, _, let hasApiKey):
-            return hasApiKey ? Color.blue : Color.blue
+        case .subscriptionActive:
+            return badgeColor
         case .subscriptionExhausted(_, let hasApiKey, _, _):
             return hasApiKey ? Color.orange : Color.red
         case .payAsYouGoOnly:
@@ -322,11 +323,9 @@ public struct ProviderCardView: View {
                     var list: [String] = []
                     if let mode = usageMode {
                         switch mode {
-                        case .subscriptionActive(_, _, let hasApiKey):
-                            if hasApiKey {
-                                list.append("🔑 API 키 연동: 등록됨 (대기 상태)")
-                                list.append("💵 추가 과금: $0.00")
-                            }
+                        case .subscriptionActive:
+                            // 평소 구독 정상 상태일 때는 API 키 관련 텍스트 노출 안 함
+                            break
                         case .subscriptionExhausted(_, let hasApiKey, let cost, let tokens):
                             if hasApiKey {
                                 list.append("⚡️ 현재 상태: API 키 호출 사용 중")
