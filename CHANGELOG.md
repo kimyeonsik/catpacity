@@ -3,6 +3,18 @@
 All notable changes to **Catpacity** will be documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - 2026-10-07
+
+### 🔑 OpenAI Codex API 키 설정 지원 및 3대 AI 스마트 Fallback 완성
+- **OpenAI API 키(Codex) 입력창 추가**:
+  - 설정(`SettingsView`) 창의 서비스 연동 설정 섹션에 OpenAI API 키(`sk-...`) 입력창을 추가했습니다.
+  - Gemini, Claude와 마찬가지로 클립보드 원클릭 붙여넣기, 마스킹 미리보기, 안전한 보안 저장을 지원합니다.
+- **3대 AI(Codex, Gemini, Claude) 완전한 대칭적 스마트 전환 지원**:
+  - 평소에는 로컬 `codex app-server`의 ChatGPT/Codex 계정 쿼터(잔여량, 리셋 주기, 리셋권 매수)를 1순위로 유지하며 어떠한 API 키 관련 텍스트 노이즈도 띄우지 않습니다.
+  - 구독 한도가 0%로 모두 소진되거나 로컬 CLI가 없는 경우, 등록된 OpenAI API 키를 기반으로 동적 전환하여 소모 토큰 및 실시간 비용($) 게이지를 모니터링합니다.
+
+---
+
 ## [1.4.2] - 2026-10-07
 
 ### 🧹 평소 구독 화면 노이즈 완전 제거 및 소진 시 동적 스위칭 정돈

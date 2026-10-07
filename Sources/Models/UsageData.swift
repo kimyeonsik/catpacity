@@ -86,37 +86,47 @@ public struct CodexUsage: Codable {
     public var isChecking: Bool = false
     public var resetCreditsAvailableCount: Int = 0
     public var resetCredits: [RateLimitResetCredit] = []
+    public var apiEstimatedCost: Double?
+    public var apiUsedTokens: Int?
     
     public var remainingPercent: Double {
         return max(0.0, 100.0 - usedPercent)
     }
     
-    public func currentMode() -> ProviderUsageMode {
+    public func currentMode(hasApiKey: Bool = false, monthlyBudget: Double = 50.0) -> ProviderUsageMode {
         guard isConnected else {
+            if hasApiKey {
+                return .payAsYouGoOnly(estimatedCost: apiEstimatedCost ?? 0.0, monthlyBudget: monthlyBudget, usedTokens: apiUsedTokens, remainingPercent: remainingPercent)
+            }
             return .disconnected(message: errorMessage ?? "Codex 미연동")
         }
+        if planType.contains("API") {
+            return .payAsYouGoOnly(estimatedCost: apiEstimatedCost ?? 0.0, monthlyBudget: monthlyBudget, usedTokens: apiUsedTokens, remainingPercent: remainingPercent)
+        }
         if ordinaryUsageAllowed && remainingPercent > 0.0 {
-            return .subscriptionActive(remainingPercent: remainingPercent, resetsAt: resetsAt, hasApiKey: false)
+            return .subscriptionActive(remainingPercent: remainingPercent, resetsAt: resetsAt, hasApiKey: hasApiKey)
         } else {
-            return .subscriptionExhausted(resetsAt: resetsAt, hasApiKey: false, apiEstimatedCost: nil, apiUsedTokens: nil)
+            return .subscriptionExhausted(resetsAt: resetsAt, hasApiKey: hasApiKey, apiEstimatedCost: apiEstimatedCost, apiUsedTokens: apiUsedTokens)
         }
     }
     
     public init(
         planType: String,
         usedPercent: Double,
-        resetsAt: Date?,
-        windowDurationMins: Int?,
-        creditsBalance: String?,
-        hasCredits: Bool,
-        ordinaryUsageAllowed: Bool,
-        submodels: [SubModelUsage],
-        lastUpdated: Date,
-        isConnected: Bool,
-        errorMessage: String?,
+        resetsAt: Date? = nil,
+        windowDurationMins: Int? = nil,
+        creditsBalance: String? = nil,
+        hasCredits: Bool = false,
+        ordinaryUsageAllowed: Bool = true,
+        submodels: [SubModelUsage] = [],
+        lastUpdated: Date = Date(),
+        isConnected: Bool = true,
+        errorMessage: String? = nil,
         isChecking: Bool = false,
         resetCreditsAvailableCount: Int = 0,
-        resetCredits: [RateLimitResetCredit] = []
+        resetCredits: [RateLimitResetCredit] = [],
+        apiEstimatedCost: Double? = nil,
+        apiUsedTokens: Int? = nil
     ) {
         self.planType = planType
         self.usedPercent = usedPercent
@@ -132,6 +142,8 @@ public struct CodexUsage: Codable {
         self.isChecking = isChecking
         self.resetCreditsAvailableCount = resetCreditsAvailableCount
         self.resetCredits = resetCredits
+        self.apiEstimatedCost = apiEstimatedCost
+        self.apiUsedTokens = apiUsedTokens
     }
     
     public init(from decoder: Decoder) throws {
@@ -172,7 +184,9 @@ public struct CodexUsage: Codable {
             errorMessage: "확인 중...",
             isChecking: true,
             resetCreditsAvailableCount: 0,
-            resetCredits: []
+            resetCredits: [],
+            apiEstimatedCost: nil,
+            apiUsedTokens: nil
         )
     }
 }

@@ -23,6 +23,7 @@ public struct SettingsView: View {
     @AppStorage("catpacity_animation_speed") private var animationSpeed: Double = 1.2
     
     // API Keys
+    @AppStorage("catpacity_codex_api_key") private var codexApiKey: String = ""
     @AppStorage("catpacity_gemini_api_key") private var geminiApiKey: String = ""
     @AppStorage("catpacity_claude_api_key") private var claudeApiKey: String = ""
     
@@ -316,6 +317,16 @@ public struct SettingsView: View {
                 Text("서비스 연동 설정 (선택사항)")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.accentColor)
+                
+                ApiKeyInputRow(
+                    title: "OpenAI API 키 (선택사항 - Codex)",
+                    subtitle: "미입력 시 Codex CLI 및 계정 쿼터 자동 연동",
+                    placeholder: "OpenAI API 키 입력...",
+                    apiKey: $codexApiKey,
+                    onCommit: { appState.refreshCodex() }
+                )
+                
+                Divider().opacity(0.4)
                 
                 ApiKeyInputRow(
                     title: "Gemini API 키 (선택사항)",

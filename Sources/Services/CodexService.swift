@@ -13,6 +13,14 @@ public class CodexService {
         fetchLock.unlock()
     }
     
+    private let defaults = UserDefaults.standard
+    private let apiKeyKey = "catpacity_codex_api_key"
+    
+    public var apiKey: String {
+        get { defaults.string(forKey: apiKeyKey) ?? ProcessInfo.processInfo.environment["OPENAI_API_KEY"] ?? "" }
+        set { defaults.set(newValue, forKey: apiKeyKey) }
+    }
+    
     public func fetchUsage(completion: @escaping (CodexUsage) -> Void) {
         fetchLock.lock()
         if isFetching {
@@ -27,22 +35,28 @@ public class CodexService {
         isFetching = true
         fetchLock.unlock()
         
+        let key = self.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let codexBinary = self?.findCodexBinary()
             guard let binary = codexBinary, FileManager.default.fileExists(atPath: binary) else {
-                self?.setIsFetching(false)
-                if var cached = self?.lastKnownValidUsage, cached.isConnected {
-                    cached.lastUpdated = Date()
-                    cached.isChecking = false
-                    DispatchQueue.main.async {
-                        completion(cached)
-                    }
+                if !key.isEmpty {
+                    self?.fetchWithApiKey(key: key, completion: completion)
                 } else {
-                    DispatchQueue.main.async {
-                        var usage = CodexUsage.initial
-                        usage.errorMessage = "Codex 미설치: 터미널에서 'npm i -g @openai/codex' 실행"
-                        usage.isChecking = false
-                        completion(usage)
+                    self?.setIsFetching(false)
+                    if var cached = self?.lastKnownValidUsage, cached.isConnected {
+                        cached.lastUpdated = Date()
+                        cached.isChecking = false
+                        DispatchQueue.main.async {
+                            completion(cached)
+                        }
+                    } else {
+                        DispatchQueue.main.async {
+                            var usage = CodexUsage.initial
+                            usage.errorMessage = "Codex 미설치: 터미널에서 'npm i -g @openai/codex' 실행 또는 API 키 입력"
+                            usage.isChecking = false
+                            completion(usage)
+                        }
                     }
                 }
                 return
@@ -95,8 +109,18 @@ public class CodexService {
                     finalUsage = cached
                 }
                 
-                DispatchQueue.main.async {
-                    completion(finalUsage)
+                if !key.isEmpty {
+                    self?.fetchApiCostOnly(key: key) { cost, tokens in
+                        finalUsage.apiEstimatedCost = cost
+                        finalUsage.apiUsedTokens = tokens
+                        DispatchQueue.main.async {
+                            completion(finalUsage)
+                        }
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        completion(finalUsage)
+                    }
                 }
             }
             
@@ -454,5 +478,140 @@ public class CodexService {
                 finishWith(false, error.localizedDescription)
             }
         }
+    }
+    
+    private func fetchWithApiKey(key: String, completion: @escaping (CodexUsage) -> Void) {
+        guard let url = URL(string: "https://api.openai.com/v1/models") else {
+            self.setIsFetching(false)
+            DispatchQueue.main.async {
+                var usage = CodexUsage.initial
+                usage.errorMessage = "잘못된 API 엔드포인트 URL"
+                usage.isChecking = false
+                usage.isConnected = false
+                completion(usage)
+            }
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 8.0
+        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            guard let self = self else { return }
+            self.setIsFetching(false)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 200 {
+                    let remainingReq = httpResponse.value(forHTTPHeaderField: "x-ratelimit-remaining-requests").flatMap { Int($0) }
+                    let limitReq = httpResponse.value(forHTTPHeaderField: "x-ratelimit-limit-requests").flatMap { Int($0) }
+                    let remainingTok = httpResponse.value(forHTTPHeaderField: "x-ratelimit-remaining-tokens").flatMap { Int($0) }
+                    let limitTok = httpResponse.value(forHTTPHeaderField: "x-ratelimit-limit-tokens").flatMap { Int($0) }
+                    
+                    var usedPercent: Double = 0.0
+                    if let rem = remainingTok, let lim = limitTok, lim > 0 {
+                        usedPercent = Double(lim - rem) / Double(lim) * 100.0
+                    } else if let rem = remainingReq, let lim = limitReq, lim > 0 {
+                        usedPercent = Double(lim - rem) / Double(lim) * 100.0
+                    }
+                    
+                    let nextReset = self.calculateNextRollingReset(intervalHours: 3)
+                    let usedTok = (limitTok != nil && remainingTok != nil && limitTok! >= remainingTok!) ? (limitTok! - remainingTok!) : nil
+                    let estimatedCost = usedTok != nil ? Double(usedTok!) * 0.000005 : nil
+                    
+                    let usage = CodexUsage(
+                        planType: "OpenAI API",
+                        usedPercent: min(100.0, max(0.0, usedPercent)),
+                        resetsAt: nextReset,
+                        lastUpdated: Date(),
+                        isConnected: true,
+                        errorMessage: nil,
+                        isChecking: false,
+                        resetCreditsAvailableCount: 0,
+                        resetCredits: [],
+                        apiEstimatedCost: estimatedCost,
+                        apiUsedTokens: usedTok
+                    )
+                    self.lastKnownValidUsage = usage
+                    usage.saveCached()
+                    
+                    DispatchQueue.main.async {
+                        completion(usage)
+                    }
+                    return
+                } else {
+                    DispatchQueue.main.async {
+                        completion(CodexUsage(
+                            planType: "API 오류",
+                            usedPercent: 0.0,
+                            resetsAt: nil,
+                            lastUpdated: Date(),
+                            isConnected: false,
+                            errorMessage: "OpenAI API 인증 실패 (HTTP \(httpResponse.statusCode))",
+                            isChecking: false,
+                            resetCreditsAvailableCount: 0,
+                            resetCredits: []
+                        ))
+                    }
+                    return
+                }
+            }
+            
+            DispatchQueue.main.async {
+                completion(CodexUsage(
+                    planType: "연결 오류",
+                    usedPercent: 0.0,
+                    resetsAt: nil,
+                    lastUpdated: Date(),
+                    isConnected: false,
+                    errorMessage: "OpenAI 통신 실패: \(error?.localizedDescription ?? "알 수 없는 오류")",
+                    isChecking: false,
+                    resetCreditsAvailableCount: 0,
+                    resetCredits: []
+                ))
+            }
+        }.resume()
+    }
+    
+    private func fetchApiCostOnly(key: String, completion: @escaping (Double?, Int?) -> Void) {
+        guard let url = URL(string: "https://api.openai.com/v1/models") else {
+            completion(nil, nil)
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 6.0
+        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                let remainingTok = httpResponse.value(forHTTPHeaderField: "x-ratelimit-remaining-tokens").flatMap { Int($0) }
+                let limitTok = httpResponse.value(forHTTPHeaderField: "x-ratelimit-limit-tokens").flatMap { Int($0) }
+                let usedTok = (limitTok != nil && remainingTok != nil && limitTok! >= remainingTok!) ? (limitTok! - remainingTok!) : nil
+                let cost = usedTok != nil ? Double(usedTok!) * 0.000005 : nil
+                DispatchQueue.main.async {
+                    completion(cost, usedTok)
+                }
+            } else {
+                DispatchQueue.main.async {
+                    completion(nil, nil)
+                }
+            }
+        }.resume()
+    }
+    
+    private func calculateNextRollingReset(intervalHours: Int) -> Date {
+        let now = Date()
+        let cal = Calendar.current
+        let currentHour = cal.component(.hour, from: now)
+        let nextBlockHour = ((currentHour / intervalHours) + 1) * intervalHours
+        
+        var comp = cal.dateComponents([.year, .month, .day], from: now)
+        comp.hour = nextBlockHour
+        comp.minute = 0
+        comp.second = 0
+        
+        return cal.date(from: comp) ?? now.addingTimeInterval(TimeInterval(intervalHours * 3600))
     }
 }

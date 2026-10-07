@@ -121,6 +121,7 @@ public struct PopoverView: View {
                     if showCodex {
                         // Codex Card
                         let codex = appState.overallUsage.codex
+                        let hasCodexApiKey = !CodexService.shared.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         let resetAction: ProviderCardAction? = codex.isConnected && codex.resetCreditsAvailableCount > 0 ? ProviderCardAction(
                             title: "🎟️ 리셋권 \(codex.resetCreditsAvailableCount)장 보유 중",
                             subtitle: "사용 즉시 한도가 100%로 복구됩니다",
@@ -145,7 +146,7 @@ public struct PopoverView: View {
                             badgeText: codex.isConnected && codex.resetCreditsAvailableCount > 0 ? "🎟️ 리셋권 \(codex.resetCreditsAvailableCount)장" : nil,
                             badgeColor: .purple,
                             customAction: resetAction,
-                            usageMode: codex.currentMode(),
+                            usageMode: codex.currentMode(hasApiKey: hasCodexApiKey),
                             onRefresh: {
                                 appState.refreshCodex()
                             }
