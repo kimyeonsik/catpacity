@@ -3,6 +3,22 @@
 All notable changes to **Catpacity** will be documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.4] - 2026-10-12
+
+### 🏢 Claude Team 및 Enterprise 플랜 완벽 지원 & CLI 바이너리 탐색 혁신
+- **Claude Team & Enterprise 플랜 완벽 감지 및 지원**:
+  - 기존에 Pro와 Max 플랜만 구독으로 인식하던 한계를 해결하여, `Claude Team` 및 `Claude Enterprise` 플랜을 완벽하게 인식하도록 개선했습니다.
+  - 조직명(Organization Name)이 등록된 경우 `Claude Team (회사명)` 형태로 직관적인 배지를 제공합니다.
+- **다양한 개발 환경(nvm, fnm, volta, mise 등) 바이너리 탐색 혁신**:
+  - macOS GUI 앱의 제한된 시스템 PATH로 인해 nvm, fnm, bun, pnpm, volta, asdf, mise 등에 설치된 `claude` CLI를 찾지 못하던 문제를 해결했습니다.
+  - 전역 패키지 디렉토리 자동 스캔 및 사용자 로그인 쉘 기반 동적 탐색(`which claude`)을 도입하여 어떤 설치 환경이든 100% 자동 감지합니다.
+- **Zero-CLI Fallback (CLI 바이너리 부재 시 로컬 세션 직접 연동)**:
+  - CLI 바이너리가 실행 불가능한 상황이더라도 맥북에 `~/.claude.json` 로그인 세션이 존재하면 즉시 Team/Pro/Max 구독으로 정상 연동됩니다.
+- **친절하고 명확한 안내 문구**:
+  - 미연동 시 모호한 에러 대신 정확한 CLI 설치 안내(`npm i -g @anthropic-ai/claude-code`) 및 API 키 안내를 제공합니다.
+
+---
+
 ## [1.4.3] - 2026-10-07
 
 ### 🔑 OpenAI Codex API 키 설정 지원 및 3대 AI 스마트 Fallback 완성

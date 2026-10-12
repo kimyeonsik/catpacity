@@ -318,7 +318,7 @@ public struct ClaudeUsage: Codable {
             }
             return .disconnected(message: errorMessage ?? "Claude 미연동")
         }
-        let isSubscription = planName.contains("Pro") || planName.contains("Max")
+        let isSubscription = planName.contains("Pro") || planName.contains("Max") || planName.contains("Team") || planName.contains("Enterprise") || planName.localizedCaseInsensitiveContains("team")
         if isSubscription {
             if remainingPercent > 0.0 {
                 return .subscriptionActive(remainingPercent: remainingPercent, resetsAt: resetsAt, hasApiKey: hasApiKey)

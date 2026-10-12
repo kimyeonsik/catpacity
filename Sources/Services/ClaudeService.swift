@@ -42,13 +42,24 @@ public class ClaudeService {
         
         let key = self.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        // 1순위: 로컬 Claude CLI / 계정 구독 확인
-        if findClaudeBinary() != nil {
+        // 1순위: 로컬 Claude CLI 또는 ~/.claude.json 로그인 세션 확인
+        let hasCli = findClaudeBinary() != nil
+        let localConfig = parseClaudeJsonConfig()
+        
+        if hasCli || localConfig != nil {
             checkClaudeCliAuth { [weak self] cliUsage in
                 guard let self = self else { return }
                 
-                // 로컬 구독(Pro / Max)이 유효하면 CLI 구독 정보를 최우선 적용
-                if cliUsage.isConnected && (cliUsage.planName.contains("Pro") || cliUsage.planName.contains("Max")) {
+                let isSubscription = cliUsage.isConnected && (
+                    cliUsage.planName.contains("Pro") ||
+                    cliUsage.planName.contains("Max") ||
+                    cliUsage.planName.contains("Team") ||
+                    cliUsage.planName.contains("Enterprise") ||
+                    cliUsage.planName.localizedCaseInsensitiveContains("team")
+                )
+                
+                // 로컬 구독(Team / Pro / Max / Enterprise)이 유효하면 CLI/로컬 구독 정보를 최우선 적용
+                if isSubscription {
                     var finalUsage = cliUsage
                     if !key.isEmpty {
                         self.fetchApiCostOnly(key: key) { cost, tokens in
@@ -67,7 +78,7 @@ public class ClaudeService {
                 }
             }
         } else if !key.isEmpty {
-            // CLI가 없고 API 키만 있는 경우
+            // CLI 및 로컬 설정이 없고 API 키만 있는 경우
             fetchWithApiKey(key: key, completion: completionWrapper)
         } else {
             checkClaudeCliAuth(completion: completionWrapper)
@@ -76,12 +87,31 @@ public class ClaudeService {
     
     private func findClaudeBinary() -> String? {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        let candidates = [
+        var candidates = [
             "\(home)/.local/bin/claude",
             "/opt/homebrew/bin/claude",
             "/usr/local/bin/claude",
+            "\(home)/.bun/bin/claude",
+            "\(home)/.npm-global/bin/claude",
+            "\(home)/Library/pnpm/claude",
+            "\(home)/.local/share/pnpm/claude",
+            "\(home)/.yarn/bin/claude",
+            "\(home)/.volta/bin/claude",
+            "\(home)/.asdf/shims/claude",
+            "\(home)/.local/share/mise/shims/claude",
+            "\(home)/.local/share/fnm/current/bin/claude",
+            "\(home)/Library/Application Support/fnm/current/bin/claude",
             "/usr/bin/claude"
         ]
+        
+        // Scan nvm node versions if present
+        let nvmNodeDir = "\(home)/.nvm/versions/node"
+        if let versions = try? FileManager.default.contentsOfDirectory(atPath: nvmNodeDir) {
+            for v in versions.sorted().reversed() {
+                candidates.insert("\(nvmNodeDir)/\(v)/bin/claude", at: 0)
+            }
+        }
+        
         for path in candidates {
             if FileManager.default.fileExists(atPath: path) {
                 return path
@@ -96,11 +126,96 @@ public class ClaudeService {
                 }
             }
         }
+        
+        // Dynamic search in user shell environment via 'which claude'
+        let whichProcess = Process()
+        whichProcess.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        whichProcess.arguments = ["-ilc", "which claude"]
+        whichProcess.environment = EnvironmentHelper.makeProcessEnvironment()
+        let pipe = Pipe()
+        whichProcess.standardOutput = pipe
+        whichProcess.standardError = Pipe()
+        do {
+            try whichProcess.run()
+            whichProcess.waitUntilExit()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !output.isEmpty, FileManager.default.fileExists(atPath: output) {
+                return output
+            }
+        } catch {}
+        
+        return nil
+    }
+    
+    private func parseClaudeJsonConfig() -> (planName: String, isConnected: Bool, errorMessage: String?)? {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let candidates = [
+            home.appendingPathComponent(".claude.json").path,
+            home.appendingPathComponent(".claude/.claude.json").path
+        ]
+        
+        for path in candidates {
+            guard let data = FileManager.default.contents(atPath: path),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                continue
+            }
+            
+            if let oauth = json["oauthAccount"] as? [String: Any],
+               (oauth["accountUuid"] != nil || oauth["emailAddress"] != nil) {
+                let orgType = (oauth["organizationType"] as? String ?? "").lowercased()
+                let rateTier = (oauth["organizationRateLimitTier"] as? String ?? "").lowercased()
+                let billing = (oauth["billingType"] as? String ?? "").lowercased()
+                let seatTier = (oauth["seatTier"] as? String ?? "").lowercased()
+                let orgName = oauth["organizationName"] as? String ?? ""
+                
+                var planName = "Claude Pro"
+                if orgType.contains("max") || rateTier.contains("max") {
+                    planName = "Claude Max"
+                } else if orgType.contains("team") || rateTier.contains("team") || seatTier.contains("team") || billing.contains("team") {
+                    if !orgName.isEmpty && !orgName.contains("@") {
+                        planName = "Claude Team (\(orgName))"
+                    } else {
+                        planName = "Claude Team"
+                    }
+                } else if orgType.contains("enterprise") || rateTier.contains("enterprise") || billing.contains("enterprise") {
+                    if !orgName.isEmpty && !orgName.contains("@") {
+                        planName = "Claude Enterprise (\(orgName))"
+                    } else {
+                        planName = "Claude Enterprise"
+                    }
+                } else if billing.contains("subscription") || orgType.contains("pro") || rateTier.contains("pro") {
+                    planName = "Claude Pro"
+                } else {
+                    let cleaned = orgType.replacingOccurrences(of: "claude_", with: "").capitalized
+                    planName = cleaned.isEmpty ? "Claude Pro" : "Claude \(cleaned)"
+                }
+                
+                return (planName: planName, isConnected: true, errorMessage: nil)
+            }
+        }
         return nil
     }
     
     private func checkClaudeCliAuth(completion: @escaping (ClaudeUsage) -> Void) {
         guard let binary = findClaudeBinary() else {
+            // CLI 바이너리를 못 찾더라도 로컬 ~/.claude.json에 유효한 세션이 있으면 즉시 연동!
+            if let parsed = parseClaudeJsonConfig(), parsed.isConnected {
+                let resetDate = calculateNextRollingReset(intervalHours: 5)
+                DispatchQueue.main.async {
+                    completion(ClaudeUsage(
+                        planName: parsed.planName,
+                        usedPercent: 0.0,
+                        resetsAt: resetDate,
+                        lastUpdated: Date(),
+                        isConnected: true,
+                        errorMessage: nil,
+                        isChecking: false
+                    ))
+                }
+                return
+            }
+            
             if var cached = self.lastKnownValidUsage, cached.isConnected {
                 cached.lastUpdated = Date()
                 cached.isChecking = false
@@ -113,7 +228,7 @@ public class ClaudeService {
                         resetsAt: nil,
                         lastUpdated: Date(),
                         isConnected: false,
-                        errorMessage: "Claude 미연동 (CLI 미설치 또는 API 키 필요)"
+                        errorMessage: "Claude 미연동: CLI 미설치('npm i -g @anthropic-ai/claude-code') 또는 API 키 필요"
                     ))
                 }
             }
@@ -141,7 +256,22 @@ public class ClaudeService {
                 if !didComplete {
                     didComplete = true
                     process.terminate()
-                    if var cached = self.lastKnownValidUsage, cached.isConnected {
+                    
+                    // 타임아웃 발생 시에도 ~/.claude.json 확인
+                    if let parsed = self.parseClaudeJsonConfig(), parsed.isConnected {
+                        let resetDate = self.calculateNextRollingReset(intervalHours: 5)
+                        DispatchQueue.main.async {
+                            completion(ClaudeUsage(
+                                planName: parsed.planName,
+                                usedPercent: 0.0,
+                                resetsAt: resetDate,
+                                lastUpdated: Date(),
+                                isConnected: true,
+                                errorMessage: nil,
+                                isChecking: false
+                            ))
+                        }
+                    } else if var cached = self.lastKnownValidUsage, cached.isConnected {
                         cached.lastUpdated = Date()
                         cached.isChecking = false
                         DispatchQueue.main.async {
@@ -183,10 +313,27 @@ public class ClaudeService {
                 didComplete = true
                 timer.cancel()
                 
-                if let json = try? JSONSerialization.jsonObject(with: outputData) as? [String: Any],
+                // Safe JSON parsing handling trailing ANSI escape codes
+                if let json = self.parseAuthStatusJson(from: outputData),
                    let loggedIn = json["loggedIn"] as? Bool {
                     if !loggedIn {
-                        // Explicitly confirmed logged out
+                        // 만약 ~/.claude.json에 유효한 계정(Team/Pro/Max)이 남아있다면 로컬 설정 기반으로 정상 연동
+                        if let parsed = self.parseClaudeJsonConfig(), parsed.isConnected {
+                            let resetDate = self.calculateNextRollingReset(intervalHours: 5)
+                            DispatchQueue.main.async {
+                                completion(ClaudeUsage(
+                                    planName: parsed.planName,
+                                    usedPercent: 0.0,
+                                    resetsAt: resetDate,
+                                    lastUpdated: Date(),
+                                    isConnected: true,
+                                    errorMessage: nil,
+                                    isChecking: false
+                                ))
+                            }
+                            return
+                        }
+                        
                         UserDefaults.standard.removeObject(forKey: "catpacity_claude_usage_cache")
                         self.lastKnownValidUsage = nil
                         DispatchQueue.main.async {
@@ -196,31 +343,35 @@ public class ClaudeService {
                                 resetsAt: nil,
                                 lastUpdated: Date(),
                                 isConnected: false,
-                                errorMessage: "Claude 미연동 (로그아웃됨 또는 구독 없음)",
+                                errorMessage: "Claude 미연동: CLI 로그인 세션 만료 ('claude login' 필요)",
                                 isChecking: false
                             ))
                         }
                         return
                     }
-                } else {
-                    // Non-JSON or warning output from CLI: keep cached connection alive if possible
-                    if var cached = self.lastKnownValidUsage, cached.isConnected {
-                        cached.lastUpdated = Date()
-                        cached.isChecking = false
-                        DispatchQueue.main.async {
-                            completion(cached)
-                        }
-                        return
-                    }
                 }
                 
-                // Active login confirmed, inspect ~/.claude.json for plan details
+                // Active login confirmed or local config check
                 self.fetchFromLocalClaudeConfig(completion: completion)
             } catch {
                 if didComplete { return }
                 didComplete = true
                 timer.cancel()
-                if var cached = self.lastKnownValidUsage, cached.isConnected {
+                
+                if let parsed = self.parseClaudeJsonConfig(), parsed.isConnected {
+                    let resetDate = self.calculateNextRollingReset(intervalHours: 5)
+                    DispatchQueue.main.async {
+                        completion(ClaudeUsage(
+                            planName: parsed.planName,
+                            usedPercent: 0.0,
+                            resetsAt: resetDate,
+                            lastUpdated: Date(),
+                            isConnected: true,
+                            errorMessage: nil,
+                            isChecking: false
+                        ))
+                    }
+                } else if var cached = self.lastKnownValidUsage, cached.isConnected {
                     cached.lastUpdated = Date()
                     cached.isChecking = false
                     DispatchQueue.main.async {
@@ -243,40 +394,40 @@ public class ClaudeService {
         }
     }
     
+    private func parseAuthStatusJson(from data: Data) -> [String: Any]? {
+        guard let text = String(data: data, encoding: .utf8) else { return nil }
+        guard let firstBrace = text.firstIndex(of: "{"),
+              let lastBrace = text.lastIndex(of: "}") else { return nil }
+        let jsonSub = String(text[firstBrace...lastBrace])
+        guard let cleanData = jsonSub.data(using: .utf8) else { return nil }
+        return try? JSONSerialization.jsonObject(with: cleanData) as? [String: Any]
+    }
+    
     private func fetchFromLocalClaudeConfig(completion: @escaping (ClaudeUsage) -> Void) {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let claudeJsonPath = home.appendingPathComponent(".claude.json").path
-        
-        var planName = "Claude Free"
-        
-        if let data = FileManager.default.contents(atPath: claudeJsonPath),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            if let oauth = json["oauthAccount"] as? [String: Any] {
-                let orgType = (oauth["organizationType"] as? String ?? "").lowercased()
-                let rateTier = (oauth["organizationRateLimitTier"] as? String ?? "").lowercased()
-                let billing = (oauth["billingType"] as? String ?? "").lowercased()
-                
-                if orgType.contains("max") || rateTier.contains("max") {
-                    planName = "Claude Max"
-                } else if billing.contains("subscription") || orgType.contains("pro") {
-                    planName = "Claude Pro"
-                } else {
-                    planName = "Claude Free"
-                }
+        if let parsed = parseClaudeJsonConfig(), parsed.isConnected {
+            let resetDate = calculateNextRollingReset(intervalHours: 5)
+            DispatchQueue.main.async {
+                completion(ClaudeUsage(
+                    planName: parsed.planName,
+                    usedPercent: 0.0, // 100% capacity available
+                    resetsAt: resetDate,
+                    lastUpdated: Date(),
+                    isConnected: true,
+                    errorMessage: nil
+                ))
             }
-        }
-        
-        let resetDate = calculateNextRollingReset(intervalHours: 5)
-        
-        DispatchQueue.main.async {
-            completion(ClaudeUsage(
-                planName: planName,
-                usedPercent: 0.0, // 100% capacity available
-                resetsAt: resetDate,
-                lastUpdated: Date(),
-                isConnected: true,
-                errorMessage: nil
-            ))
+        } else {
+            let resetDate = calculateNextRollingReset(intervalHours: 5)
+            DispatchQueue.main.async {
+                completion(ClaudeUsage(
+                    planName: "Claude Free",
+                    usedPercent: 0.0,
+                    resetsAt: resetDate,
+                    lastUpdated: Date(),
+                    isConnected: false,
+                    errorMessage: "Claude 계정 로그인 정보 없음 ('claude login' 필요)"
+                ))
+            }
         }
     }
     

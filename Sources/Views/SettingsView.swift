@@ -340,7 +340,7 @@ public struct SettingsView: View {
                 
                 ApiKeyInputRow(
                     title: "Claude API 키 (선택사항)",
-                    subtitle: "미입력 시 로컬 Claude Code 로그인 계정 자동 감지",
+                    subtitle: "미입력 시 Claude Code (Team/Pro/Max) 로그인 계정 자동 감지",
                     placeholder: "Claude API 키 입력...",
                     apiKey: $claudeApiKey,
                     onCommit: { appState.refreshClaude() }
