@@ -380,25 +380,35 @@ public struct PopoverView: View {
         let claude = appState.overallUsage.claude
         if !claude.isConnected {
             if claude.isChecking || claude.errorMessage?.contains("확인 중") == true {
-                items.append("Claude 로그인 확인 중...")
+                items.append("Claude 연결 확인 중...")
             } else {
-                items.append("구독 해지됨 또는 미로그인 (설정에서 플랜 선택 또는 API 키 연동 가능)")
+                items.append("Desktop 앱 미실행 또는 미로그인 (설정에서 플랜 선택 또는 API 키 연동 가능)")
             }
-        } else if claude.planName.contains("Enterprise") {
-            items.append("Claude Enterprise 플랜 (최대 한도 & 5시간 롤링)")
-        } else if claude.planName.contains("Team") {
-            items.append("Claude Team 플랜 (팀 확장 한도 & 5시간 롤링)")
-        } else if claude.planName.contains("Max") {
-            items.append("Claude Max 플랜 (우선 한도 & 5시간 롤링)")
-        } else if claude.planName.contains("Pro") {
-            items.append("Claude Pro 5시간 롤링 리셋")
-        } else if claude.planName.contains("API") {
-            items.append("Anthropic API 키 연동")
-        }
-        
-        if let tokens = claude.apiUsedTokens, tokens > 0 {
-            let formattedTokens = NumberFormatter.localizedString(from: NSNumber(value: tokens), number: .decimal)
-            items.append("최근 5시간 소모: \(formattedTokens) 토큰")
+        } else {
+            if let src = claude.source {
+                items.append("연동 소스: \(src)")
+            }
+            if claude.planName.contains("Enterprise") {
+                items.append("Claude Enterprise 플랜 (최대 한도 & 5시간 롤링)")
+            } else if claude.planName.contains("Team") {
+                items.append("Claude Team 플랜 (팀 확장 한도 & 5시간 롤링)")
+            } else if claude.planName.contains("Max") {
+                items.append("Claude Max 플랜 (우선 한도 & 5시간 롤링)")
+            } else if claude.planName.contains("Pro") {
+                items.append("Claude Pro 플랜 (5시간 롤링 리셋)")
+            } else if claude.planName.contains("API") {
+                items.append("Anthropic API 키 연동")
+            }
+            
+            if let weekly = claude.weeklyUsedPercent {
+                let remainingWeekly = max(0, 100 - Int(weekly))
+                items.append("주간 잔여 한도: \(remainingWeekly)% 남음")
+            }
+            
+            if let tokens = claude.apiUsedTokens, tokens > 0 {
+                let formattedTokens = NumberFormatter.localizedString(from: NSNumber(value: tokens), number: .decimal)
+                items.append("최근 5시간 소모: \(formattedTokens) 토큰")
+            }
         }
         return items
     }

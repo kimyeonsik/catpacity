@@ -32,6 +32,7 @@ public struct SettingsView: View {
     @State private var launchAtLogin: Bool = LaunchAtLoginHelper.isEnabled
     @AppStorage("catpacity_refresh_interval") private var refreshInterval: Int = 300 // 5 mins
     @AppStorage("catpacity_notify_on_high_usage") private var notifyHighUsage: Bool = true
+    @State private var claudeHookStatusMessage: String? = nil
     
     let speedOptions: [(Double, String)] = [
         (1.5, "느긋하게 (초절전 - 1.5초)"),
@@ -341,11 +342,59 @@ public struct SettingsView: View {
                 
                 ApiKeyInputRow(
                     title: "Claude API 키 (선택사항)",
-                    subtitle: "미입력 시 Claude Code (Team/Pro/Max) 로그인 계정 자동 감지",
+                    subtitle: "미입력 시 Claude Desktop 앱 또는 Claude Code 공식 계정 자동 감지",
                     placeholder: "Claude API 키 입력...",
                     apiKey: $claudeApiKey,
                     onCommit: { appState.refreshClaude() }
                 )
+                
+                Divider().opacity(0.4)
+                
+                // Claude Connection Status & Hook Setup
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "antenna.radiowaves.left.and.right")
+                            .font(.system(size: 10))
+                            .foregroundColor(.accentColor)
+                        Text("Claude 연동 상태:")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(ClaudeService.shared.detectedSourceDescription)
+                            .font(.system(size: 10.5))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Text("• Claude Desktop 앱이 실행 중이면 100% 공식 실시간 사용량이 자동 연동됩니다.\n• 터미널 Claude Code를 주로 쓰신다면 아래 버튼으로 실시간 연동을 등록하세요.")
+                        .font(.system(size: 9.5))
+                        .foregroundColor(.secondary)
+                        .padding(.vertical, 2)
+                    
+                    HStack {
+                        Button(action: {
+                            let result = ClaudeService.shared.setupClaudeCodeIntegration()
+                            claudeHookStatusMessage = result.message
+                            appState.refreshClaude()
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "bolt.fill")
+                                    .font(.system(size: 10))
+                                Text("Claude Code 실시간 쿼터 자동 연동 등록")
+                                    .font(.system(size: 10.5, weight: .medium))
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        
+                        if let msg = claudeHookStatusMessage {
+                            Text(msg)
+                                .font(.system(size: 9.5))
+                                .foregroundColor(.accentColor)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+                .padding(8)
+                .background(Color.primary.opacity(0.02))
+                .cornerRadius(6)
                 
                 Divider().opacity(0.4)
                 

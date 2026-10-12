@@ -306,6 +306,53 @@ public struct ClaudeUsage: Codable {
     public var isChecking: Bool = false
     public var apiEstimatedCost: Double?
     public var apiUsedTokens: Int?
+    public var weeklyUsedPercent: Double?
+    public var source: String?
+    public var activeOrg: String?
+    
+    public init(
+        planName: String,
+        usedPercent: Double,
+        resetsAt: Date?,
+        lastUpdated: Date,
+        isConnected: Bool,
+        errorMessage: String?,
+        isChecking: Bool = false,
+        apiEstimatedCost: Double? = nil,
+        apiUsedTokens: Int? = nil,
+        weeklyUsedPercent: Double? = nil,
+        source: String? = nil,
+        activeOrg: String? = nil
+    ) {
+        self.planName = planName
+        self.usedPercent = usedPercent
+        self.resetsAt = resetsAt
+        self.lastUpdated = lastUpdated
+        self.isConnected = isConnected
+        self.errorMessage = errorMessage
+        self.isChecking = isChecking
+        self.apiEstimatedCost = apiEstimatedCost
+        self.apiUsedTokens = apiUsedTokens
+        self.weeklyUsedPercent = weeklyUsedPercent
+        self.source = source
+        self.activeOrg = activeOrg
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        planName = try container.decode(String.self, forKey: .planName)
+        usedPercent = try container.decode(Double.self, forKey: .usedPercent)
+        resetsAt = try container.decodeIfPresent(Date.self, forKey: .resetsAt)
+        lastUpdated = try container.decode(Date.self, forKey: .lastUpdated)
+        isConnected = try container.decode(Bool.self, forKey: .isConnected)
+        errorMessage = try container.decodeIfPresent(String.self, forKey: .errorMessage)
+        isChecking = try container.decodeIfPresent(Bool.self, forKey: .isChecking) ?? false
+        apiEstimatedCost = try container.decodeIfPresent(Double.self, forKey: .apiEstimatedCost)
+        apiUsedTokens = try container.decodeIfPresent(Int.self, forKey: .apiUsedTokens)
+        weeklyUsedPercent = try container.decodeIfPresent(Double.self, forKey: .weeklyUsedPercent)
+        source = try container.decodeIfPresent(String.self, forKey: .source)
+        activeOrg = try container.decodeIfPresent(String.self, forKey: .activeOrg)
+    }
     
     public var remainingPercent: Double {
         return max(0.0, 100.0 - usedPercent)
@@ -318,7 +365,7 @@ public struct ClaudeUsage: Codable {
             }
             return .disconnected(message: errorMessage ?? "Claude 미연동")
         }
-        let isSubscription = planName.contains("Pro") || planName.contains("Max") || planName.contains("Team") || planName.contains("Enterprise") || planName.localizedCaseInsensitiveContains("team")
+        let isSubscription = planName.contains("Pro") || planName.contains("Max") || planName.contains("Team") || planName.contains("Enterprise") || planName.localizedCaseInsensitiveContains("team") || planName.contains("Desktop")
         if isSubscription {
             if remainingPercent > 0.0 {
                 return .subscriptionActive(remainingPercent: remainingPercent, resetsAt: resetsAt, hasApiKey: hasApiKey)
@@ -351,7 +398,10 @@ public struct ClaudeUsage: Codable {
             errorMessage: "확인 중...",
             isChecking: true,
             apiEstimatedCost: nil,
-            apiUsedTokens: nil
+            apiUsedTokens: nil,
+            weeklyUsedPercent: nil,
+            source: nil,
+            activeOrg: nil
         )
     }
 }

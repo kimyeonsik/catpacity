@@ -48,7 +48,34 @@ public class ClaudeService {
         
         let key = self.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        // 1순위: 로컬 Claude CLI 또는 ~/.claude.json 로그인 세션 확인
+        // 1순위: 공식 실시간 쿼터 소스들 (Claude Desktop 앱 히스토리, Claude Code 실시간 훅, ~/.claude.json 캐시)
+        // 존재하는 공식 데이터 중 가장 최근(lastUpdated) 데이터를 최우선 적용
+        var officialCandidates: [ClaudeUsage] = []
+        if let desktop = readDesktopPlanUsage() {
+            officialCandidates.append(desktop)
+        }
+        if let codeHook = readClaudeCodeQuotaHook() {
+            officialCandidates.append(codeHook)
+        }
+        if let codeCache = readClaudeJsonCache() {
+            officialCandidates.append(codeCache)
+        }
+        
+        if let bestOfficial = officialCandidates.sorted(by: { $0.lastUpdated > $1.lastUpdated }).first {
+            var finalUsage = bestOfficial
+            if !key.isEmpty {
+                self.fetchApiCostOnly(key: key) { cost, tokens in
+                    finalUsage.apiEstimatedCost = cost
+                    finalUsage.apiUsedTokens = tokens
+                    completionWrapper(finalUsage)
+                }
+            } else {
+                completionWrapper(finalUsage)
+            }
+            return
+        }
+        
+        // 2순위: 로컬 Claude CLI 또는 ~/.claude.json 로그인 세션 확인 (추정 토큰 Fallback)
         let hasCli = findClaudeBinary() != nil
         let localConfig = parseClaudeJsonConfig()
         
@@ -61,10 +88,10 @@ public class ClaudeService {
                     cliUsage.planName.contains("Max") ||
                     cliUsage.planName.contains("Team") ||
                     cliUsage.planName.contains("Enterprise") ||
-                    cliUsage.planName.localizedCaseInsensitiveContains("team")
+                    cliUsage.planName.localizedCaseInsensitiveContains("team") ||
+                    cliUsage.planName.contains("Desktop")
                 )
                 
-                // 로컬 구독(Team / Pro / Max / Enterprise)이 유효하면 CLI/로컬 구독 정보를 최우선 적용
                 if isSubscription {
                     var finalUsage = cliUsage
                     if !key.isEmpty {
@@ -77,14 +104,12 @@ public class ClaudeService {
                         completionWrapper(finalUsage)
                     }
                 } else if !key.isEmpty {
-                    // 구독이 없거나 CLI 미로그인 상태인데 API 키가 있다면 API 키 모드로 전환
                     self.fetchWithApiKey(key: key, completion: completionWrapper)
                 } else {
                     completionWrapper(cliUsage)
                 }
             }
         } else if !key.isEmpty {
-            // CLI 및 로컬 설정이 없고 API 키만 있는 경우
             fetchWithApiKey(key: key, completion: completionWrapper)
         } else {
             checkClaudeCliAuth(completion: completionWrapper)
@@ -640,5 +665,228 @@ public class ClaudeService {
                 }
             }
         }.resume()
+    }
+    
+    // MARK: - 1. Claude Desktop App Official Usage (~/Library/Application Support/Claude/plan-usage-history.json)
+    public func readDesktopPlanUsage() -> ClaudeUsage? {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let historyPath = home.appendingPathComponent("Library/Application Support/Claude/plan-usage-history.json").path
+        guard FileManager.default.fileExists(atPath: historyPath),
+              let data = FileManager.default.contents(atPath: historyPath),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let samples = json["samples"] as? [[String: Any]],
+              let lastSample = samples.last,
+              let timestampMs = lastSample["t"] as? Double,
+              let u = lastSample["u"] as? [String: Any] else {
+            return nil
+        }
+        
+        let sampleDate = Date(timeIntervalSince1970: timestampMs / 1000.0)
+        let fiveHoursAgo = Date().addingTimeInterval(-5 * 3600)
+        
+        // 5시간 쿼터 소모율 (fh)
+        let fh = (u["fh"] as? Double) ?? Double(u["fh"] as? Int ?? 0)
+        // 7일 주간 쿼터 소모율 (sd)
+        let sd = (u["sd"] as? Double) ?? (u["sd"] as? Int).map { Double($0) }
+        
+        // 5시간 세션 리셋 시간 계산
+        let resetDate: Date
+        if sampleDate >= fiveHoursAgo {
+            resetDate = sampleDate.addingTimeInterval(5 * 3600)
+        } else {
+            // 마지막 샘플이 5시간 이상 전이라면 현재 윈도우는 리셋된 상태
+            resetDate = calculateNextRollingReset(intervalHours: 5)
+        }
+        
+        // 플랜 이름 결정
+        var planName = "Claude Desktop"
+        if let local = parseClaudeJsonConfig(), local.isConnected {
+            planName = local.planName
+        } else if planOverride == "team" {
+            planName = "Claude Team"
+        } else if planOverride == "enterprise" {
+            planName = "Claude Enterprise"
+        } else if planOverride == "max" {
+            planName = "Claude Max"
+        } else if planOverride == "pro" {
+            planName = "Claude Pro"
+        }
+        
+        let activeOrg = lastSample["org"] as? String
+        
+        return ClaudeUsage(
+            planName: planName,
+            usedPercent: sampleDate >= fiveHoursAgo ? min(100.0, max(0.0, fh)) : 0.0,
+            resetsAt: resetDate,
+            lastUpdated: sampleDate,
+            isConnected: true,
+            errorMessage: nil,
+            isChecking: false,
+            apiEstimatedCost: nil,
+            apiUsedTokens: nil,
+            weeklyUsedPercent: sd,
+            source: "Claude Desktop 앱",
+            activeOrg: activeOrg
+        )
+    }
+    
+    // MARK: - 2. Claude Code Real-Time Quota Hook (~/.catpacity/claude_quota.json)
+    public func readClaudeCodeQuotaHook() -> ClaudeUsage? {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let quotaPath = home.appendingPathComponent(".catpacity/claude_quota.json").path
+        guard FileManager.default.fileExists(atPath: quotaPath),
+              let data = FileManager.default.contents(atPath: quotaPath),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        
+        let rateLimits = (json["rate_limits"] as? [String: Any]) ?? json
+        guard let fiveHour = rateLimits["five_hour"] as? [String: Any] else {
+            return nil
+        }
+        
+        let usedPct = (fiveHour["used_percentage"] as? Double) ?? Double(fiveHour["used_percentage"] as? Int ?? 0)
+        var resetDate: Date? = nil
+        if let resetsAtSec = fiveHour["resets_at"] as? Double {
+            resetDate = Date(timeIntervalSince1970: resetsAtSec)
+        }
+        
+        var weeklyPct: Double? = nil
+        if let sevenDay = rateLimits["seven_day"] as? [String: Any] {
+            weeklyPct = (sevenDay["used_percentage"] as? Double) ?? (sevenDay["used_percentage"] as? Int).map { Double($0) }
+        }
+        
+        let modDate = (try? FileManager.default.attributesOfItem(atPath: quotaPath)[.modificationDate] as? Date) ?? Date()
+        
+        var planName = "Claude Code"
+        if let local = parseClaudeJsonConfig(), local.isConnected {
+            planName = local.planName
+        } else if planOverride == "team" {
+            planName = "Claude Team"
+        }
+        
+        return ClaudeUsage(
+            planName: planName,
+            usedPercent: min(100.0, max(0.0, usedPct)),
+            resetsAt: resetDate ?? calculateNextRollingReset(intervalHours: 5),
+            lastUpdated: modDate,
+            isConnected: true,
+            errorMessage: nil,
+            isChecking: false,
+            weeklyUsedPercent: weeklyPct,
+            source: "Claude Code 실시간 훅"
+        )
+    }
+    
+    // MARK: - 3. Claude Code ~/.claude.json cachedUsageUtilization
+    public func readClaudeJsonCache() -> ClaudeUsage? {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let candidates = [
+            home.appendingPathComponent(".claude.json").path,
+            home.appendingPathComponent(".claude/.claude.json").path
+        ]
+        
+        for path in candidates {
+            guard let data = FileManager.default.contents(atPath: path),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let cache = json["cachedUsageUtilization"] as? [String: Any],
+                  let util = cache["utilization"] as? [String: Any],
+                  let fiveHour = util["five_hour"] as? [String: Any] else {
+                continue
+            }
+            
+            let usedPct = (fiveHour["utilization"] as? Double) ?? Double(fiveHour["utilization"] as? Int ?? 0)
+            var resetDate: Date? = nil
+            if let resetsAt = fiveHour["resets_at"] as? String {
+                let iso = ISO8601DateFormatter()
+                iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                resetDate = iso.date(from: resetsAt) ?? ISO8601DateFormatter().date(from: resetsAt)
+            } else if let resetsAtSec = fiveHour["resets_at"] as? Double {
+                resetDate = Date(timeIntervalSince1970: resetsAtSec)
+            }
+            
+            var weeklyPct: Double? = nil
+            if let sevenDay = util["seven_day"] as? [String: Any] {
+                weeklyPct = (sevenDay["utilization"] as? Double) ?? (sevenDay["utilization"] as? Int).map { Double($0) }
+            }
+            
+            let fetchedAtMs = cache["fetchedAtMs"] as? Double ?? 0
+            let cacheDate = fetchedAtMs > 0 ? Date(timeIntervalSince1970: fetchedAtMs / 1000.0) : Date()
+            
+            var planName = "Claude Code"
+            if let local = parseClaudeJsonConfig(), local.isConnected {
+                planName = local.planName
+            } else if planOverride == "team" {
+                planName = "Claude Team"
+            }
+            
+            return ClaudeUsage(
+                planName: planName,
+                usedPercent: min(100.0, max(0.0, usedPct)),
+                resetsAt: resetDate ?? calculateNextRollingReset(intervalHours: 5),
+                lastUpdated: cacheDate,
+                isConnected: true,
+                errorMessage: nil,
+                isChecking: false,
+                weeklyUsedPercent: weeklyPct,
+                source: "Claude Code 캐시"
+            )
+        }
+        return nil
+    }
+    
+    // MARK: - 4. Claude Code statusLine Hook One-Click Setup
+    public func setupClaudeCodeIntegration() -> (success: Bool, message: String) {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let catpacityDir = home.appendingPathComponent(".catpacity").path
+        
+        do {
+            try FileManager.default.createDirectory(atPath: catpacityDir, withIntermediateDirectories: true)
+        } catch {
+            return (false, "디렉토리 생성 실패 (~/.catpacity): \(error.localizedDescription)")
+        }
+        
+        let settingsDir = home.appendingPathComponent(".claude").path
+        let settingsPath = "\(settingsDir)/settings.json"
+        
+        try? FileManager.default.createDirectory(atPath: settingsDir, withIntermediateDirectories: true)
+        
+        var settings: [String: Any] = [:]
+        if let data = FileManager.default.contents(atPath: settingsPath),
+           let existing = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            settings = existing
+        }
+        
+        let hookCommand = "sh -c 'cat > ~/.catpacity/claude_quota.json'"
+        settings["statusLine"] = [
+            "command": hookCommand
+        ]
+        
+        do {
+            let outData = try JSONSerialization.data(withJSONObject: settings, options: [.prettyPrinted])
+            try outData.write(to: URL(fileURLWithPath: settingsPath))
+            return (true, "연동 등록 완료! 터미널에서 claude를 실행하면 쿼터가 실시간 자동 동기화됩니다.")
+        } catch {
+            return (false, "settings.json 저장 실패: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - 5. Detected Connection Status Description
+    public var detectedSourceDescription: String {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let desktopPath = home.appendingPathComponent("Library/Application Support/Claude/plan-usage-history.json").path
+        let hookPath = home.appendingPathComponent(".catpacity/claude_quota.json").path
+        
+        if FileManager.default.fileExists(atPath: desktopPath) {
+            return "🖥️ Claude Desktop 앱 감지됨 (자동 연동)"
+        } else if FileManager.default.fileExists(atPath: hookPath) {
+            return "⚡ Claude Code 실시간 훅 연동됨"
+        } else if parseClaudeJsonConfig() != nil {
+            return "📁 ~/.claude.json 로그인 계정 감지됨"
+        } else if !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "🔑 Anthropic API 키 연동됨"
+        } else {
+            return "미연동 (Desktop 앱 또는 Claude Code 필요)"
+        }
     }
 }

@@ -3,6 +3,25 @@
 All notable changes to **Catpacity** will be documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.6] - 2026-10-12
+
+### 🚀 Claude 사용자 유형별 완벽 대응 (Desktop 앱 100% 공식 연동 & Claude Code 실시간 쿼터 훅)
+- **🖥️ Claude Desktop 앱 100% 공식 실시간 사용량 자동 연동**:
+  - 터미널을 전혀 쓰지 않고 맥의 **Claude 데스크탑 앱(`Claude.app`)만 사용하는 유저**를 완벽하게 지원합니다.
+  - Claude 데스크탑 앱이 디스크에 실시간 기록하는 공식 히스토리 파일(`~/Library/Application Support/Claude/plan-usage-history.json`)을 자동 파싱합니다.
+  - Anthropic 서버가 공인한 **진짜 5시간 사용량(`fh`)과 7일 주간 사용량(`sd`)**을 0.1% 오차 없이 정확한 게이지로 표시합니다. (사용자 별도 설정 불필요, 데스크탑 앱 실행 시 자동 연동!)
+- **⚡ Claude Code (터미널) 실시간 쿼터 자동 연동 지원**:
+  - Claude Code 공식 상태줄(`statusLine`) 훅 기능을 연동하여, CLI로 명령을 실행할 때마다 Anthropic 서버가 응답한 **진짜 5시간 및 주간 쿼터**가 Catpacity에 실시간 동기화되도록 구현했습니다.
+  - **설정(Settings) 화면에 `[Claude Code 실시간 쿼터 자동 연동 등록]` 원클릭 버튼**을 추가하여 누구나 터미널 세팅 없이 원클릭으로 연동을 활성화할 수 있습니다.
+- **📁 ~/.claude.json 내부 공식 캐시(`cachedUsageUtilization`) 연동**:
+  - Claude Code가 내부적으로 캐시해둔 최신 공식 쿼터 수치를 최우선 추출하여 표시합니다.
+- **🎨 UI 및 카드 세부 안내 고도화**:
+  - 팝오버 카드에 현재 데이터가 어디서 온 것인지(`연동 소스: Claude Desktop 앱`, `Claude Code 실시간 훅`, `API 키` 등) 직관적으로 표시합니다.
+  - 5시간 잔여 한도뿐만 아니라 **주간 잔여 한도(%)**까지 함께 안내합니다.
+  - 설정 창에 현재 감지된 Claude 연동 상태 배너를 실시간으로 안내합니다.
+
+---
+
 ## [1.4.5] - 2026-10-12
 
 ### 🎯 Claude 최근 5시간 실제 사용량(토큰) 실시간 반영 & 수동 플랜 지정 지원
