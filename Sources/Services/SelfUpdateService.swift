@@ -14,15 +14,30 @@ public class SelfUpdateService {
         onProgress("최신 릴리즈 패키지 확인 중...")
         
         let cleanTag = tag.trimmingCharacters(in: .whitespacesAndNewlines)
-        let downloadUrlString: String
+        var candidateUrls: [String] = []
         if !cleanTag.isEmpty {
-            downloadUrlString = "https://github.com/\(repo)/releases/download/\(cleanTag)/Catpacity-macOS.zip"
-        } else {
-            downloadUrlString = "https://github.com/\(repo)/releases/latest/download/Catpacity-macOS.zip"
+            candidateUrls.append("https://github.com/\(repo)/releases/download/\(cleanTag)/Catpacity-macOS.zip")
+            candidateUrls.append("https://github.com/\(repo)/releases/download/\(cleanTag)/Catpacity-\(cleanTag)-macOS.zip")
+        }
+        candidateUrls.append("https://github.com/\(repo)/releases/latest/download/Catpacity-macOS.zip")
+        
+        tryDownloadCandidates(urls: candidateUrls, index: 0, onProgress: onProgress, onError: onError)
+    }
+    
+    private func tryDownloadCandidates(
+        urls: [String],
+        index: Int,
+        onProgress: @escaping (String) -> Void,
+        onError: @escaping (String) -> Void
+    ) {
+        guard index < urls.count else {
+            onError("최신 업데이트 패키지를 찾을 수 없습니다. (HTTP 404)")
+            return
         }
         
-        guard let downloadUrl = URL(string: downloadUrlString) else {
-            onError("다운로드 URL이 유효하지 않습니다.")
+        let urlString = urls[index]
+        guard let downloadUrl = URL(string: urlString) else {
+            tryDownloadCandidates(urls: urls, index: index + 1, onProgress: onProgress, onError: onError)
             return
         }
         
@@ -37,23 +52,23 @@ public class SelfUpdateService {
         let task = session.downloadTask(with: request) { [weak self] tempLocalUrl, response, error in
             guard let self = self else { return }
             
-            if let error = error {
+            if error != nil {
                 DispatchQueue.main.async {
-                    onError("다운로드 실패: \(error.localizedDescription)")
+                    self.tryDownloadCandidates(urls: urls, index: index + 1, onProgress: onProgress, onError: onError)
                 }
                 return
             }
             
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
                 DispatchQueue.main.async {
-                    onError("다운로드 실패 (HTTP \(httpResponse.statusCode))")
+                    self.tryDownloadCandidates(urls: urls, index: index + 1, onProgress: onProgress, onError: onError)
                 }
                 return
             }
             
             guard let tempLocalUrl = tempLocalUrl else {
                 DispatchQueue.main.async {
-                    onError("다운로드된 파일 경로를 찾을 수 없습니다.")
+                    self.tryDownloadCandidates(urls: urls, index: index + 1, onProgress: onProgress, onError: onError)
                 }
                 return
             }
