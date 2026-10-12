@@ -3,6 +3,21 @@
 All notable changes to **Catpacity** will be documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.5] - 2026-10-12
+
+### 🎯 Claude 최근 5시간 실제 사용량(토큰) 실시간 반영 & 수동 플랜 지정 지원
+- **실제 사용량 실시간 집계 및 게이지 반영**:
+  - 기존에 Claude 사용량이 0%(잔여 100%)로 고정되어 실제 사용량과 맞지 않던 문제를 해결했습니다.
+  - Claude Code의 로컬 세션 로그(`~/.claude/projects/`)를 분석하여 **최근 5시간 롤링 윈도우 내 실제 소모 토큰**을 실시간 집계하고, 플랜별 한도(Team 500k, Max 1M, Pro 150k 등) 대비 실제 사용률(%)과 소모 토큰 수를 게이지 및 카드에 정확하게 반영합니다.
+  - 리셋 시각 또한 최근 5시간 내 첫 호출 시점을 기준으로 정확한 롤링 만료 시각을 계산합니다.
+- **Claude 플랜 수동 선택 (Override) 지원**:
+  - 로컬 설정 파일의 복수 조직 세션 등으로 인해 자동 감지가 어긋나는 경우를 대비하여, **설정(Settings) 창에 `Claude 플랜 유형` 선택 옵션**(`자동 감지`, `Claude Team`, `Claude Pro`, `Claude Max`, `Claude Enterprise`)을 추가했습니다.
+  - 팀 플랜 사용자는 'Claude Team'을 선택하여 즉시 팀 기준 확장 한도와 배지를 적용받을 수 있습니다.
+- **팝오버 카드 세부 안내 강화**:
+  - `Claude Team 플랜 (팀 확장 한도 & 5시간 롤링)` 및 `최근 5시간 소모: X,XXX 토큰` 안내를 명확하게 표시합니다.
+
+---
+
 ## [1.4.4] - 2026-10-12
 
 ### 🏢 Claude Team 및 Enterprise 플랜 완벽 지원 & CLI 바이너리 탐색 혁신

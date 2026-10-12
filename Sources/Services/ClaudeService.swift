@@ -5,10 +5,16 @@ public class ClaudeService {
     
     private let defaults = UserDefaults.standard
     private let apiKeyKey = "catpacity_claude_api_key"
+    private let planOverrideKey = "catpacity_claude_plan_override"
     
     public var apiKey: String {
         get { defaults.string(forKey: apiKeyKey) ?? ProcessInfo.processInfo.environment["ANTHROPIC_API_KEY"] ?? "" }
         set { defaults.set(newValue, forKey: apiKeyKey) }
+    }
+    
+    public var planOverride: String {
+        get { defaults.string(forKey: planOverrideKey) ?? "auto" }
+        set { defaults.set(newValue, forKey: planOverrideKey) }
     }
     
     private var isFetching = false
@@ -149,6 +155,17 @@ public class ClaudeService {
     }
     
     private func parseClaudeJsonConfig() -> (planName: String, isConnected: Bool, errorMessage: String?)? {
+        let override = self.planOverride
+        if override == "team" {
+            return (planName: "Claude Team", isConnected: true, errorMessage: nil)
+        } else if override == "enterprise" {
+            return (planName: "Claude Enterprise", isConnected: true, errorMessage: nil)
+        } else if override == "max" {
+            return (planName: "Claude Max", isConnected: true, errorMessage: nil)
+        } else if override == "pro" {
+            return (planName: "Claude Pro", isConnected: true, errorMessage: nil)
+        }
+        
         let home = FileManager.default.homeDirectoryForCurrentUser
         let candidates = [
             home.appendingPathComponent(".claude.json").path,
@@ -167,19 +184,34 @@ public class ClaudeService {
                 let rateTier = (oauth["organizationRateLimitTier"] as? String ?? "").lowercased()
                 let billing = (oauth["billingType"] as? String ?? "").lowercased()
                 let seatTier = (oauth["seatTier"] as? String ?? "").lowercased()
+                let orgRole = (oauth["organizationRole"] as? String ?? "").lowercased()
                 let orgName = oauth["organizationName"] as? String ?? ""
+                let userTier = (oauth["userRateLimitTier"] as? String ?? "").lowercased()
                 
                 var planName = "Claude Pro"
+                let isTeam = orgType.contains("team") ||
+                             rateTier.contains("team") ||
+                             seatTier.contains("team") ||
+                             billing.contains("team") ||
+                             orgRole.contains("team") ||
+                             userTier.contains("team") ||
+                             orgName.lowercased().contains("team")
+                
+                let isEnterprise = orgType.contains("enterprise") ||
+                                   rateTier.contains("enterprise") ||
+                                   billing.contains("enterprise") ||
+                                   seatTier.contains("enterprise")
+                
                 if orgType.contains("max") || rateTier.contains("max") {
                     planName = "Claude Max"
-                } else if orgType.contains("team") || rateTier.contains("team") || seatTier.contains("team") || billing.contains("team") {
-                    if !orgName.isEmpty && !orgName.contains("@") {
+                } else if isTeam {
+                    if !orgName.isEmpty && !orgName.contains("@") && !orgName.lowercased().contains("organization") {
                         planName = "Claude Team (\(orgName))"
                     } else {
                         planName = "Claude Team"
                     }
-                } else if orgType.contains("enterprise") || rateTier.contains("enterprise") || billing.contains("enterprise") {
-                    if !orgName.isEmpty && !orgName.contains("@") {
+                } else if isEnterprise {
+                    if !orgName.isEmpty && !orgName.contains("@") && !orgName.lowercased().contains("organization") {
                         planName = "Claude Enterprise (\(orgName))"
                     } else {
                         planName = "Claude Enterprise"
@@ -197,20 +229,104 @@ public class ClaudeService {
         return nil
     }
     
+    private func calculateRecent5HourUsage(planName: String) -> (usedPercent: Double, usedTokens: Int, nextReset: Date) {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let projectsDir = home + "/.claude/projects"
+        let fiveHoursAgo = Date().addingTimeInterval(-5 * 3600)
+        
+        var totalTokens = 0
+        var earliestCallTime: Date? = nil
+        
+        if FileManager.default.fileExists(atPath: projectsDir),
+           let enumerator = FileManager.default.enumerator(atPath: projectsDir) {
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let fallbackFormatter = ISO8601DateFormatter()
+            
+            while let file = enumerator.nextObject() as? String {
+                guard file.hasSuffix(".jsonl") else { continue }
+                let fullPath = "\(projectsDir)/\(file)"
+                
+                guard let attrs = try? FileManager.default.attributesOfItem(atPath: fullPath),
+                      let modDate = attrs[.modificationDate] as? Date,
+                      modDate >= fiveHoursAgo else {
+                    continue
+                }
+                
+                if let data = FileManager.default.contents(atPath: fullPath),
+                   let content = String(data: data, encoding: .utf8) {
+                    let lines = content.components(separatedBy: "\n")
+                    for line in lines where line.contains("\"usage\"") {
+                        guard let lineData = line.data(using: .utf8),
+                              let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any],
+                              let message = json["message"] as? [String: Any],
+                              let usage = message["usage"] as? [String: Any] else {
+                            continue
+                        }
+                        
+                        let inTok = usage["input_tokens"] as? Int ?? 0
+                        let outTok = usage["output_tokens"] as? Int ?? 0
+                        let lineTokens = inTok + outTok
+                        
+                        var callDate: Date? = nil
+                        if let tsStr = json["timestamp"] as? String {
+                            callDate = isoFormatter.date(from: tsStr) ?? fallbackFormatter.date(from: tsStr)
+                        } else if let tsNum = json["timestamp"] as? Double {
+                            callDate = Date(timeIntervalSince1970: tsNum > 1e11 ? tsNum / 1000.0 : tsNum)
+                        }
+                        
+                        if let d = callDate {
+                            if d >= fiveHoursAgo {
+                                totalTokens += lineTokens
+                                if earliestCallTime == nil || d < earliestCallTime! {
+                                    earliestCallTime = d
+                                }
+                            }
+                        } else {
+                            totalTokens += lineTokens
+                        }
+                    }
+                }
+            }
+        }
+        
+        let limitTokens: Double
+        if planName.contains("Max") {
+            limitTokens = 1_000_000.0
+        } else if planName.contains("Enterprise") {
+            limitTokens = 1_500_000.0
+        } else if planName.contains("Team") {
+            limitTokens = 500_000.0
+        } else {
+            limitTokens = 150_000.0 // Pro default
+        }
+        
+        let calculatedPercent = min(100.0, max(0.0, Double(totalTokens) / limitTokens * 100.0))
+        let nextReset: Date
+        if let earliest = earliestCallTime {
+            nextReset = earliest.addingTimeInterval(5 * 3600)
+        } else {
+            nextReset = calculateNextRollingReset(intervalHours: 5)
+        }
+        
+        return (usedPercent: calculatedPercent, usedTokens: totalTokens, nextReset: nextReset)
+    }
+    
     private func checkClaudeCliAuth(completion: @escaping (ClaudeUsage) -> Void) {
         guard let binary = findClaudeBinary() else {
             // CLI 바이너리를 못 찾더라도 로컬 ~/.claude.json에 유효한 세션이 있으면 즉시 연동!
             if let parsed = parseClaudeJsonConfig(), parsed.isConnected {
-                let resetDate = calculateNextRollingReset(intervalHours: 5)
+                let usageInfo = calculateRecent5HourUsage(planName: parsed.planName)
                 DispatchQueue.main.async {
                     completion(ClaudeUsage(
                         planName: parsed.planName,
-                        usedPercent: 0.0,
-                        resetsAt: resetDate,
+                        usedPercent: usageInfo.usedPercent,
+                        resetsAt: usageInfo.nextReset,
                         lastUpdated: Date(),
                         isConnected: true,
                         errorMessage: nil,
-                        isChecking: false
+                        isChecking: false,
+                        apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil
                     ))
                 }
                 return
@@ -319,16 +435,17 @@ public class ClaudeService {
                     if !loggedIn {
                         // 만약 ~/.claude.json에 유효한 계정(Team/Pro/Max)이 남아있다면 로컬 설정 기반으로 정상 연동
                         if let parsed = self.parseClaudeJsonConfig(), parsed.isConnected {
-                            let resetDate = self.calculateNextRollingReset(intervalHours: 5)
+                            let usageInfo = self.calculateRecent5HourUsage(planName: parsed.planName)
                             DispatchQueue.main.async {
                                 completion(ClaudeUsage(
                                     planName: parsed.planName,
-                                    usedPercent: 0.0,
-                                    resetsAt: resetDate,
+                                    usedPercent: usageInfo.usedPercent,
+                                    resetsAt: usageInfo.nextReset,
                                     lastUpdated: Date(),
                                     isConnected: true,
                                     errorMessage: nil,
-                                    isChecking: false
+                                    isChecking: false,
+                                    apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil
                                 ))
                             }
                             return
@@ -359,16 +476,17 @@ public class ClaudeService {
                 timer.cancel()
                 
                 if let parsed = self.parseClaudeJsonConfig(), parsed.isConnected {
-                    let resetDate = self.calculateNextRollingReset(intervalHours: 5)
+                    let usageInfo = self.calculateRecent5HourUsage(planName: parsed.planName)
                     DispatchQueue.main.async {
                         completion(ClaudeUsage(
                             planName: parsed.planName,
-                            usedPercent: 0.0,
-                            resetsAt: resetDate,
+                            usedPercent: usageInfo.usedPercent,
+                            resetsAt: usageInfo.nextReset,
                             lastUpdated: Date(),
                             isConnected: true,
                             errorMessage: nil,
-                            isChecking: false
+                            isChecking: false,
+                            apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil
                         ))
                     }
                 } else if var cached = self.lastKnownValidUsage, cached.isConnected {
@@ -405,15 +523,17 @@ public class ClaudeService {
     
     private func fetchFromLocalClaudeConfig(completion: @escaping (ClaudeUsage) -> Void) {
         if let parsed = parseClaudeJsonConfig(), parsed.isConnected {
-            let resetDate = calculateNextRollingReset(intervalHours: 5)
+            let usageInfo = calculateRecent5HourUsage(planName: parsed.planName)
             DispatchQueue.main.async {
                 completion(ClaudeUsage(
                     planName: parsed.planName,
-                    usedPercent: 0.0, // 100% capacity available
-                    resetsAt: resetDate,
+                    usedPercent: usageInfo.usedPercent,
+                    resetsAt: usageInfo.nextReset,
                     lastUpdated: Date(),
                     isConnected: true,
-                    errorMessage: nil
+                    errorMessage: nil,
+                    isChecking: false,
+                    apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil
                 ))
             }
         } else {

@@ -26,6 +26,7 @@ public struct SettingsView: View {
     @AppStorage("catpacity_codex_api_key") private var codexApiKey: String = ""
     @AppStorage("catpacity_gemini_api_key") private var geminiApiKey: String = ""
     @AppStorage("catpacity_claude_api_key") private var claudeApiKey: String = ""
+    @AppStorage("catpacity_claude_plan_override") private var claudePlanOverride: String = "auto"
     
     // General
     @State private var launchAtLogin: Bool = LaunchAtLoginHelper.isEnabled
@@ -345,6 +346,31 @@ public struct SettingsView: View {
                     apiKey: $claudeApiKey,
                     onCommit: { appState.refreshClaude() }
                 )
+                
+                Divider().opacity(0.4)
+                
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Claude 플랜 유형")
+                            .font(.system(size: 11.5, weight: .medium))
+                        Text("팀 플랜 적용 시 'Claude Team'을 선택하면 팀 기준 한도가 적용됩니다")
+                            .font(.system(size: 9.5))
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Picker("", selection: $claudePlanOverride) {
+                        Text("자동 감지 (권장)").tag("auto")
+                        Text("Claude Team (팀 플랜)").tag("team")
+                        Text("Claude Pro (프로)").tag("pro")
+                        Text("Claude Max (맥스)").tag("max")
+                        Text("Claude Enterprise (기업)").tag("enterprise")
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 175)
+                    .onChange(of: claudePlanOverride) { _ in
+                        appState.refreshClaude()
+                    }
+                }
             }
             .padding(10)
             .background(Color.primary.opacity(0.03))
