@@ -229,6 +229,15 @@ public class ClaudeService {
                                    billing.contains("enterprise") ||
                                    seatTier.contains("enterprise")
                 
+                let profileFetchedAtMs = oauth["profileFetchedAt"] as? Double ?? 0
+                let isProfileStale: Bool = {
+                    if profileFetchedAtMs > 0 {
+                        let fetchedDate = Date(timeIntervalSince1970: profileFetchedAtMs / 1000.0)
+                        return Date().timeIntervalSince(fetchedDate) > 30 * 86400
+                    }
+                    return false
+                }()
+                
                 if isTeam {
                     if !orgName.isEmpty && !orgName.contains("@") && !orgName.lowercased().contains("organization") {
                         planName = "Claude Team (\(orgName))"
@@ -241,10 +250,10 @@ public class ClaudeService {
                     } else {
                         planName = "Claude Enterprise"
                     }
-                } else if billing.contains("subscription") || orgType.contains("pro") || rateTier.contains("pro") || orgType.contains("max") || rateTier.contains("max") {
-                    // Anthropic은 Pro 구독자에게 내부적으로 Sonnet 1M/5x 티어(claude_max)를 부여하므로 공식 명칭인 Claude Pro로 표시
+                } else if !isProfileStale && (billing.contains("subscription") || orgType.contains("pro") || rateTier.contains("pro") || orgType.contains("max") || rateTier.contains("max")) {
+                    // Anthropic은 Pro 구독자에게 내부적으로 Sonnet 1M/5x 티어(claude_max)를 부여하므로 공식 명칭인 Claude Pro로 표시 (단, 최근 30일 이내 유효 프로필에 한함)
                     planName = "Claude Pro"
-                } else if billing.isEmpty || billing == "none" || billing.contains("free") || orgType.contains("free") || rateTier.contains("free") {
+                } else if billing.isEmpty || billing == "none" || billing.contains("free") || orgType.contains("free") || rateTier.contains("free") || isProfileStale {
                     planName = "Claude Free"
                 } else {
                     let cleaned = orgType.replacingOccurrences(of: "claude_", with: "").capitalized

@@ -3,6 +3,15 @@
 All notable changes to **Catpacity** will be documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.12] - 2026-10-12
+
+### 🛡️ 만료된 과거 Stripe 구독 캐시 자동 만료 처리 & Claude Free 자동 정상화
+- **✨ 과거 만료된 Pro 구독 캐시 자동 만료 판별**:
+  - `~/.claude.json`에 과거 결제 정보(`stripe_subscription`, `claude_max`)가 남아있더라도, 마지막 프로필 갱신 시각(`profileFetchedAt`)이 30일(월간 결제 주기) 이상 지난 과거 데이터인 경우 만료된 구독으로 처리하여 자동으로 **`Claude Free`**로 분류합니다.
+  - 유료 구독을 해지한 사용자가 수동 설정을 바꾸거나 캐시 파일을 직접 지우지 않아도, 앱이 알아서 정상적인 무료 플랜으로 감지합니다.
+
+---
+
 ## [1.4.11] - 2026-10-12
 
 ### 🎯 Claude 플랜 판별 알고리즘 정밀화 & Claude Free 기본값 안전장치 강화
