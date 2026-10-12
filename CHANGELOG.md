@@ -3,6 +3,15 @@
 All notable changes to **Catpacity** will be documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.11] - 2026-10-12
+
+### 🎯 Claude 플랜 판별 알고리즘 정밀화 & Claude Free 기본값 안전장치 강화
+- **🛡️ 무료 계정(Claude Free) 확실한 보장**:
+  - 활성 로그인 계정의 프로필 분석 시 유료 구독(`stripe_subscription`, `claude_pro`, `claude_max`) 증거가 명시적으로 존재하지 않는 모든 계정에 대해 기본값을 100% **`Claude Free`**로 안전하게 분류하도록 Fallback 로직을 보강했습니다.
+  - 결제 정보가 없거나 빈 프로필일 때 의도치 않게 Pro로 분류되던 잠재적 버그를 원천 차단했습니다.
+
+---
+
 ## [1.4.10] - 2026-10-12
 
 ### 🚀 Claude 원클릭 터미널 OAuth 연동 Flow & 설정 연동 허브 전면 개편
