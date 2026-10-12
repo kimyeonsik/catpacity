@@ -227,9 +227,7 @@ public class ClaudeService {
                                    billing.contains("enterprise") ||
                                    seatTier.contains("enterprise")
                 
-                if orgType.contains("max") || rateTier.contains("max") {
-                    planName = "Claude Max"
-                } else if isTeam {
+                if isTeam {
                     if !orgName.isEmpty && !orgName.contains("@") && !orgName.lowercased().contains("organization") {
                         planName = "Claude Team (\(orgName))"
                     } else {
@@ -241,7 +239,8 @@ public class ClaudeService {
                     } else {
                         planName = "Claude Enterprise"
                     }
-                } else if billing.contains("subscription") || orgType.contains("pro") || rateTier.contains("pro") {
+                } else if billing.contains("subscription") || orgType.contains("pro") || rateTier.contains("pro") || orgType.contains("max") || rateTier.contains("max") {
+                    // Anthropic은 Pro 구독자에게 내부적으로 Sonnet 1M/5x 티어(claude_max)를 부여하므로 공식 명칭인 Claude Pro로 표시
                     planName = "Claude Pro"
                 } else {
                     let cleaned = orgType.replacingOccurrences(of: "claude_", with: "").capitalized
@@ -254,12 +253,14 @@ public class ClaudeService {
         return nil
     }
     
-    private func calculateRecent5HourUsage(planName: String) -> (usedPercent: Double, usedTokens: Int, nextReset: Date?) {
+    private func calculateRecent5HourUsage(planName: String) -> (usedPercent: Double, usedTokens: Int, nextReset: Date?, weeklyUsedPercent: Double?) {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let projectsDir = home + "/.claude/projects"
         let fiveHoursAgo = Date().addingTimeInterval(-5 * 3600)
+        let sevenDaysAgo = Date().addingTimeInterval(-7 * 24 * 3600)
         
         var totalTokens = 0
+        var totalWeeklyTokens = 0
         var earliestCallTime: Date? = nil
         
         if FileManager.default.fileExists(atPath: projectsDir),
@@ -274,7 +275,7 @@ public class ClaudeService {
                 
                 guard let attrs = try? FileManager.default.attributesOfItem(atPath: fullPath),
                       let modDate = attrs[.modificationDate] as? Date,
-                      modDate >= fiveHoursAgo else {
+                      modDate >= sevenDaysAgo else {
                     continue
                 }
                 
@@ -301,6 +302,9 @@ public class ClaudeService {
                         }
                         
                         if let d = callDate {
+                            if d >= sevenDaysAgo {
+                                totalWeeklyTokens += lineTokens
+                            }
                             if d >= fiveHoursAgo {
                                 totalTokens += lineTokens
                                 if earliestCallTime == nil || d < earliestCallTime! {
@@ -308,6 +312,7 @@ public class ClaudeService {
                                 }
                             }
                         } else {
+                            totalWeeklyTokens += lineTokens
                             totalTokens += lineTokens
                         }
                     }
@@ -316,17 +321,24 @@ public class ClaudeService {
         }
         
         let limitTokens: Double
+        let weeklyLimitTokens: Double
         if planName.contains("Max") {
             limitTokens = 1_000_000.0
+            weeklyLimitTokens = 5_000_000.0
         } else if planName.contains("Enterprise") {
             limitTokens = 1_500_000.0
+            weeklyLimitTokens = 7_500_000.0
         } else if planName.contains("Team") {
             limitTokens = 500_000.0
+            weeklyLimitTokens = 2_500_000.0
         } else {
             limitTokens = 150_000.0 // Pro default
+            weeklyLimitTokens = 750_000.0
         }
         
         let calculatedPercent = min(100.0, max(0.0, Double(totalTokens) / limitTokens * 100.0))
+        let weeklyPercent = min(100.0, max(0.0, Double(totalWeeklyTokens) / weeklyLimitTokens * 100.0))
+        
         let nextReset: Date?
         if let earliest = earliestCallTime {
             nextReset = earliest.addingTimeInterval(5 * 3600)
@@ -334,7 +346,7 @@ public class ClaudeService {
             nextReset = nil // 토큰 소모가 없으면 세션 타이머 미시작!
         }
         
-        return (usedPercent: calculatedPercent, usedTokens: totalTokens, nextReset: nextReset)
+        return (usedPercent: calculatedPercent, usedTokens: totalTokens, nextReset: nextReset, weeklyUsedPercent: weeklyPercent)
     }
     
     private func checkClaudeCliAuth(completion: @escaping (ClaudeUsage) -> Void) {
@@ -351,7 +363,8 @@ public class ClaudeService {
                         isConnected: true,
                         errorMessage: nil,
                         isChecking: false,
-                        apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil
+                        apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil,
+                        weeklyUsedPercent: usageInfo.weeklyUsedPercent
                     ))
                 }
                 return
@@ -410,7 +423,8 @@ public class ClaudeService {
                                 isConnected: true,
                                 errorMessage: nil,
                                 isChecking: false,
-                                apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil
+                                apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil,
+                                weeklyUsedPercent: usageInfo.weeklyUsedPercent
                             ))
                         }
                     } else if var cached = self.lastKnownValidUsage, cached.isConnected {
@@ -471,7 +485,8 @@ public class ClaudeService {
                                     isConnected: true,
                                     errorMessage: nil,
                                     isChecking: false,
-                                    apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil
+                                    apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil,
+                                    weeklyUsedPercent: usageInfo.weeklyUsedPercent
                                 ))
                             }
                             return
@@ -512,7 +527,8 @@ public class ClaudeService {
                             isConnected: true,
                             errorMessage: nil,
                             isChecking: false,
-                            apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil
+                            apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil,
+                            weeklyUsedPercent: usageInfo.weeklyUsedPercent
                         ))
                     }
                 } else if var cached = self.lastKnownValidUsage, cached.isConnected {
@@ -559,7 +575,8 @@ public class ClaudeService {
                     isConnected: true,
                     errorMessage: nil,
                     isChecking: false,
-                    apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil
+                    apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil,
+                    weeklyUsedPercent: usageInfo.weeklyUsedPercent
                 ))
             }
         } else {

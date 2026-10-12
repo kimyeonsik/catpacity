@@ -3,6 +3,21 @@
 All notable changes to **Catpacity** will be documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.8] - 2026-10-12
+
+### 🎯 Claude 플랜명 정상화 (Claude Pro) & 듀얼 게이지 상시 활성화
+- **🏷️ Claude 플랜 명칭 정밀 보정 ('Claude Pro' 정상화)**:
+  - Anthropic 계정의 내부 조직 식별자(`claude_max`, `default_claude_max_5x`)로 인해 실제 Pro 구독 유저에게 'Claude Max'로 잘못 표시되던 문제를 해결했습니다.
+  - 실제 결제 구독 플랜인 **`Claude Pro`**로 명확하게 표시됩니다. (설정 창의 플랜 수동 변경도 계속 완벽 지원)
+- **📊 Claude 5시간 & 주간(7일) 듀얼 게이지 상시 표시**:
+  - 주간 수치가 캐시되지 않았을 때 주간 게이지가 누락되어 단일 게이지로만 보이던 문제를 해결했습니다.
+  - Claude 카드가 연결된 경우 **상단 `5시간 세션 한도` + 하단 `주간 한도 (7일)`** 듀얼 게이지가 Gemini와 동일하게 항상 선명하게 표시됩니다.
+  - 로컬 세션 로그에서 최근 7일간의 사용량을 자동 집계하여 주간 소모율에 실시간 반영합니다.
+- **⚡ 인앱 자동 업데이트 404 방지 다중 URL 폴백**:
+  - 패키지 업데이트 다운로드 시 다중 파일명 후보를 순차 탐색하여 404 다운로드 실패를 원천 차단했습니다.
+
+---
+
 ## [1.4.7] - 2026-10-12
 
 ### 📊 5시간 세션 한도 & 주간(7일) 한도 듀얼 게이지 & 리셋 시각 정밀 보정

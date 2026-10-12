@@ -192,11 +192,12 @@ public struct PopoverView: View {
                         let claude = appState.overallUsage.claude
                         let hasClaudeApiKey = !ClaudeService.shared.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         let claudeSecondaryGauge: SecondaryGaugeInfo? = {
-                            guard claude.isConnected, let weekly = claude.weeklyRemainingPercent else { return nil }
-                            let weeklyUsed = claude.weeklyUsedPercent ?? max(0.0, 100.0 - weekly)
+                            guard claude.isConnected else { return nil }
+                            let weeklyRemaining = claude.weeklyRemainingPercent ?? max(0.0, 100.0 - (claude.weeklyUsedPercent ?? 0.0))
+                            let weeklyUsed = claude.weeklyUsedPercent ?? max(0.0, 100.0 - weeklyRemaining)
                             return SecondaryGaugeInfo(
                                 title: "주간 한도 (7일)",
-                                remainingPercent: weekly,
+                                remainingPercent: weeklyRemaining,
                                 usedPercent: weeklyUsed,
                                 resetsAt: claude.weeklyResetsAt,
                                 resetLabel: "주간 리셋:"
