@@ -239,13 +239,9 @@ public struct PopoverView: View {
             
             // Footer Controls (Single unified settings button)
             HStack {
-                HStack(spacing: 4) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 10))
-                    Text(TimeFormatter.formatRelativeTime(appState.lastSyncTime))
-                        .font(.system(size: 10.5))
-                        .foregroundColor(.secondary)
-                }
+                Text(TimeFormatter.formatRelativeTime(appState.lastSyncTime))
+                    .font(.system(size: 10.5))
+                    .foregroundColor(.secondary)
                 
                 Spacer()
                 
