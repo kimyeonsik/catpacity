@@ -3,6 +3,21 @@
 All notable changes to **Catpacity** will be documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.9] - 2026-10-12
+
+### 🎁 Claude Free(무료 요금제) 완벽 지원 & 만료 세션 자동 판별
+- **🆓 Claude Free (무료 플랜) 완벽 지원**:
+  - 유료 구독을 하지 않는 무료 요금제 유저를 위해 **`Claude Free`** 플랜 지원을 공식 추가했습니다.
+  - 설정(Settings) 창의 `Claude 플랜 유형`에 **`Claude Free (무료 플랜)`** 선택지를 추가하여 언제든 직접 지정할 수 있습니다.
+  - 무료 요금제는 주간 대규모 쿼터가 없으므로 불필요한 주간 게이지를 숨기고, 직관적인 **`무료 세션 한도` (5시간당 메시지 허용량)** 게이지로 깔끔하게 안내합니다.
+- **🛡️ 만료된 과거 OAuth 캐시 자동 판별 (무료 플랜 자동 전환)**:
+  - 과거에 생성된 `~/.claude.json`에 만료된 구독 흔적(`stripe_subscription`)이 있더라도, CLI가 로그아웃되었거나 30일 이상 지난 과거 캐시인 경우 유료 플랜으로 오인하지 않고 자동으로 **`Claude Free`**로 전환합니다.
+- **✨ 유료 vs 무료 플랜 맞춤형 게이지 제공**:
+  - 유료 플랜(Claude Pro / Team / Max / Enterprise): **상단 `5시간 세션 한도` + 하단 `주간 한도 (7일)`** 듀얼 게이지 상시 제공.
+  - 무료 플랜(Claude Free): **`무료 세션 한도`** 단일 게이지 + 쿨다운 안내.
+
+---
+
 ## [1.4.8] - 2026-10-12
 
 ### 🎯 Claude 플랜명 정상화 (Claude Pro) & 듀얼 게이지 상시 활성화

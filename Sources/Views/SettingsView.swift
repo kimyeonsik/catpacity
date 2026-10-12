@@ -409,6 +409,7 @@ public struct SettingsView: View {
                     Spacer()
                     Picker("", selection: $claudePlanOverride) {
                         Text("자동 감지 (권장)").tag("auto")
+                        Text("Claude Free (무료 플랜)").tag("free")
                         Text("Claude Team (팀 플랜)").tag("team")
                         Text("Claude Pro (프로)").tag("pro")
                         Text("Claude Max (맥스)").tag("max")

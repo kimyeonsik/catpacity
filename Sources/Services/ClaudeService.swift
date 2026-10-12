@@ -181,7 +181,9 @@ public class ClaudeService {
     
     private func parseClaudeJsonConfig() -> (planName: String, isConnected: Bool, errorMessage: String?)? {
         let override = self.planOverride
-        if override == "team" {
+        if override == "free" {
+            return (planName: "Claude Free", isConnected: true, errorMessage: nil)
+        } else if override == "team" {
             return (planName: "Claude Team", isConnected: true, errorMessage: nil)
         } else if override == "enterprise" {
             return (planName: "Claude Enterprise", isConnected: true, errorMessage: nil)
@@ -205,6 +207,14 @@ public class ClaudeService {
             
             if let oauth = json["oauthAccount"] as? [String: Any],
                (oauth["accountUuid"] != nil || oauth["emailAddress"] != nil) {
+                // 프로필 조회 시점이 30일 이상 지난 과거 캐시라면 현재 유료 구독이 만료된 것으로 판단하여 Claude Free로 전환
+                if let profileFetchedAt = oauth["profileFetchedAt"] as? Double {
+                    let fetchDate = Date(timeIntervalSince1970: profileFetchedAt > 1e11 ? profileFetchedAt / 1000.0 : profileFetchedAt)
+                    if Date().timeIntervalSince(fetchDate) > 30 * 24 * 3600 {
+                        return (planName: "Claude Free", isConnected: true, errorMessage: nil)
+                    }
+                }
+                
                 let orgType = (oauth["organizationType"] as? String ?? "").lowercased()
                 let rateTier = (oauth["organizationRateLimitTier"] as? String ?? "").lowercased()
                 let billing = (oauth["billingType"] as? String ?? "").lowercased()
