@@ -3,6 +3,23 @@
 All notable changes to **Catpacity** will be documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.10] - 2026-10-12
+
+### 🚀 Claude 원클릭 터미널 OAuth 연동 Flow & 설정 연동 허브 전면 개편
+- **🔑 원클릭 터미널 OAuth 로그인 Flow 도입 (`claude login`)**:
+  - Claude 카드가 미연동 상태일 때 단순 안내문만 띄우지 않고, **`[터미널에서 로그인]`** 원클릭 액션 버튼을 팝오버 및 설정창에 전면 배치했습니다.
+  - 클릭 시 `Terminal.app`을 자동으로 열어 `claude login` 명령어를 실행하고 브라우저 인증 창으로 직행합니다.
+  - 인증 완료 후 앱이 실제 계정 플랜(Free, Pro, Team 등)과 실시간 쿼터를 서버에서 직접 동기화합니다.
+- **⚙️ 설정 창 'Claude 연동 허브 (Connection Hub)' 구축**:
+  - **실시간 연동 상태 인디케이터**: 초록/빨강 상태 램프와 즉시 새로고침할 수 있는 `[연결 확인]` 버튼 제공.
+  - **방법 1 (권장)**: `[터미널 열고 로그인 ('claude login')]` 원클릭 버튼 + `[실시간 쿼터 훅 자동 등록]` 버튼.
+  - **방법 2**: 공식 Anthropic API 키(`sk-ant-api03-...`) 직접 입력란.
+  - **방법 3**: 플랜 유형 수동 선택 (`Claude Free`, `Pro`, `Team`, `Max`, `Enterprise`).
+- **🛡️ 정직한 인증 기반 상태 표시 & 가짜 추측 로직 원천 제거**:
+  - CLI가 로그아웃되었거나 유효한 세션이 없을 때 디스크의 오래된 파일을 보고 임의로 플랜을 지레짐작하던 코드를 전면 제거하고, 실제 인증 세션 유효성(`loggedIn: true`)을 엄격히 검증합니다.
+
+---
+
 ## [1.4.9] - 2026-10-12
 
 ### 🎁 Claude Free(무료 요금제) 완벽 지원 & 만료 세션 자동 판별

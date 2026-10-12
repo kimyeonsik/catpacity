@@ -340,87 +340,142 @@ public struct SettingsView: View {
                 
                 Divider().opacity(0.4)
                 
-                ApiKeyInputRow(
-                    title: "Claude API 키 (선택사항)",
-                    subtitle: "미입력 시 Claude Desktop 앱 또는 Claude Code 공식 계정 자동 감지",
-                    placeholder: "Claude API 키 입력...",
-                    apiKey: $claudeApiKey,
-                    onCommit: { appState.refreshClaude() }
-                )
-                
-                Divider().opacity(0.4)
-                
-                // Claude Connection Status & Hook Setup
-                VStack(alignment: .leading, spacing: 6) {
+                // Claude Connection Hub
+                VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 5) {
                         Image(systemName: "antenna.radiowaves.left.and.right")
-                            .font(.system(size: 10))
+                            .font(.system(size: 11))
                             .foregroundColor(.accentColor)
-                        Text("Claude 연동 상태:")
+                        Text("Claude 공식 계정 연동 상태:")
+                            .font(.system(size: 11.5, weight: .bold))
+                        
+                        Circle()
+                            .fill(appState.overallUsage.claude.isConnected ? Color.green : Color.red.opacity(0.8))
+                            .frame(width: 7, height: 7)
+                        
+                        Text(appState.overallUsage.claude.isConnected ? appState.overallUsage.claude.planName : "미연동")
                             .font(.system(size: 11, weight: .semibold))
-                        Text(ClaudeService.shared.detectedSourceDescription)
-                            .font(.system(size: 10.5))
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Text("• Claude Desktop 앱이 실행 중이면 100% 공식 실시간 사용량이 자동 연동됩니다.\n• 터미널 Claude Code를 주로 쓰신다면 아래 버튼으로 실시간 연동을 등록하세요.")
-                        .font(.system(size: 9.5))
-                        .foregroundColor(.secondary)
-                        .padding(.vertical, 2)
-                    
-                    HStack {
+                            .foregroundColor(appState.overallUsage.claude.isConnected ? .green : .red.opacity(0.8))
+                        
+                        Spacer()
+                        
                         Button(action: {
-                            let result = ClaudeService.shared.setupClaudeCodeIntegration()
-                            claudeHookStatusMessage = result.message
                             appState.refreshClaude()
                         }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "bolt.fill")
-                                    .font(.system(size: 10))
-                                Text("Claude Code 실시간 쿼터 자동 연동 등록")
-                                    .font(.system(size: 10.5, weight: .medium))
+                            HStack(spacing: 3) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 9))
+                                Text("연결 확인")
+                                    .font(.system(size: 9.5))
                             }
                         }
                         .buttonStyle(.bordered)
-                        .controlSize(.small)
+                        .controlSize(.mini)
+                    }
+                    
+                    Text("상세 상태: \(ClaudeService.shared.detectedSourceDescription)")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                    
+                    Divider().opacity(0.4)
+                    
+                    // 방법 1: 터미널 OAuth 로그인 Flow
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("방법 1. 터미널 공식 OAuth 로그인 (권장)")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.primary)
+                        Text("버튼 클릭 시 터미널을 열어 'claude login'을 실행합니다. 브라우저 인증을 완료하면 5시간/7일 공식 쿼터가 실시간 자동 연동됩니다.")
+                            .font(.system(size: 9.5))
+                            .foregroundColor(.secondary)
+                        
+                        HStack(spacing: 8) {
+                            Button(action: {
+                                ClaudeService.shared.launchTerminalLogin {
+                                    claudeHookStatusMessage = "터미널에서 로그인을 진행해주세요. 완료 후 [연결 확인]을 눌러주세요."
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+                                        appState.refreshClaude()
+                                    }
+                                }
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "terminal.fill")
+                                        .font(.system(size: 10))
+                                    Text("터미널 열고 로그인 ('claude login')")
+                                        .font(.system(size: 10.5, weight: .semibold))
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.purple)
+                            .controlSize(.small)
+                            
+                            Button(action: {
+                                let result = ClaudeService.shared.setupClaudeCodeIntegration()
+                                claudeHookStatusMessage = result.message
+                                appState.refreshClaude()
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "bolt.fill")
+                                        .font(.system(size: 10))
+                                    Text("실시간 쿼터 훅 자동 등록")
+                                        .font(.system(size: 10))
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
                         
                         if let msg = claudeHookStatusMessage {
                             Text(msg)
                                 .font(.system(size: 9.5))
                                 .foregroundColor(.accentColor)
-                                .lineLimit(1)
+                                .padding(.top, 2)
+                        }
+                    }
+                    .padding(8)
+                    .background(Color.purple.opacity(0.06))
+                    .cornerRadius(6)
+                    
+                    Divider().opacity(0.4)
+                    
+                    // 방법 2: Anthropic API 키 직접 입력
+                    ApiKeyInputRow(
+                        title: "방법 2. Claude API 키 직접 입력 (선택사항)",
+                        subtitle: "Anthropic Console API 키 입력 시 실시간 토큰/비용 추적",
+                        placeholder: "sk-ant-api03-... 입력",
+                        apiKey: $claudeApiKey,
+                        onCommit: { appState.refreshClaude() }
+                    )
+                    
+                    Divider().opacity(0.4)
+                    
+                    // 방법 3: 플랜 유형 수동 지정
+                    HStack(alignment: .center) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("방법 3. 플랜 유형 수동 선택")
+                                .font(.system(size: 11, weight: .bold))
+                            Text("특정 플랜 한도 기준으로 사용량을 표시하고 싶을 때 선택")
+                                .font(.system(size: 9.5))
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Picker("", selection: $claudePlanOverride) {
+                            Text("자동 감지 (권장)").tag("auto")
+                            Text("Claude Free (무료 플랜)").tag("free")
+                            Text("Claude Pro (프로)").tag("pro")
+                            Text("Claude Team (팀 플랜)").tag("team")
+                            Text("Claude Max (맥스)").tag("max")
+                            Text("Claude Enterprise (기업)").tag("enterprise")
+                        }
+                        .pickerStyle(.menu)
+                        .frame(width: 165)
+                        .onChange(of: claudePlanOverride) { _ in
+                            appState.refreshClaude()
                         }
                     }
                 }
                 .padding(8)
                 .background(Color.primary.opacity(0.02))
                 .cornerRadius(6)
-                
-                Divider().opacity(0.4)
-                
-                HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Claude 플랜 유형")
-                            .font(.system(size: 11.5, weight: .medium))
-                        Text("팀 플랜 적용 시 'Claude Team'을 선택하면 팀 기준 한도가 적용됩니다")
-                            .font(.system(size: 9.5))
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
-                    Picker("", selection: $claudePlanOverride) {
-                        Text("자동 감지 (권장)").tag("auto")
-                        Text("Claude Free (무료 플랜)").tag("free")
-                        Text("Claude Team (팀 플랜)").tag("team")
-                        Text("Claude Pro (프로)").tag("pro")
-                        Text("Claude Max (맥스)").tag("max")
-                        Text("Claude Enterprise (기업)").tag("enterprise")
-                    }
-                    .pickerStyle(.menu)
-                    .frame(width: 175)
-                    .onChange(of: claudePlanOverride) { _ in
-                        appState.refreshClaude()
-                    }
-                }
             }
             .padding(10)
             .background(Color.primary.opacity(0.03))

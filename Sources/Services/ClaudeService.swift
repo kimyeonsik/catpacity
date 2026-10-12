@@ -207,14 +207,6 @@ public class ClaudeService {
             
             if let oauth = json["oauthAccount"] as? [String: Any],
                (oauth["accountUuid"] != nil || oauth["emailAddress"] != nil) {
-                // 프로필 조회 시점이 30일 이상 지난 과거 캐시라면 현재 유료 구독이 만료된 것으로 판단하여 Claude Free로 전환
-                if let profileFetchedAt = oauth["profileFetchedAt"] as? Double {
-                    let fetchDate = Date(timeIntervalSince1970: profileFetchedAt > 1e11 ? profileFetchedAt / 1000.0 : profileFetchedAt)
-                    if Date().timeIntervalSince(fetchDate) > 30 * 24 * 3600 {
-                        return (planName: "Claude Free", isConnected: true, errorMessage: nil)
-                    }
-                }
-                
                 let orgType = (oauth["organizationType"] as? String ?? "").lowercased()
                 let rateTier = (oauth["organizationRateLimitTier"] as? String ?? "").lowercased()
                 let billing = (oauth["billingType"] as? String ?? "").lowercased()
@@ -361,8 +353,8 @@ public class ClaudeService {
     
     private func checkClaudeCliAuth(completion: @escaping (ClaudeUsage) -> Void) {
         guard let binary = findClaudeBinary() else {
-            // CLI 바이너리를 못 찾더라도 로컬 ~/.claude.json에 유효한 세션이 있으면 즉시 연동!
-            if let parsed = parseClaudeJsonConfig(), parsed.isConnected {
+            // 사용자가 설정에서 수동으로 플랜을 지정한 경우에만 해당 오버라이드 플랜 표시
+            if self.planOverride != "auto", let parsed = parseClaudeJsonConfig(), parsed.isConnected {
                 let usageInfo = calculateRecent5HourUsage(planName: parsed.planName)
                 DispatchQueue.main.async {
                     completion(ClaudeUsage(
@@ -421,8 +413,8 @@ public class ClaudeService {
                     didComplete = true
                     process.terminate()
                     
-                    // 타임아웃 발생 시에도 ~/.claude.json 확인
-                    if let parsed = self.parseClaudeJsonConfig(), parsed.isConnected {
+                    // 타임아웃 발생 시: 수동 오버라이드 플랜이 있는 경우에만 적용
+                    if self.planOverride != "auto", let parsed = self.parseClaudeJsonConfig(), parsed.isConnected {
                         let usageInfo = self.calculateRecent5HourUsage(planName: parsed.planName)
                         DispatchQueue.main.async {
                             completion(ClaudeUsage(
@@ -480,53 +472,53 @@ public class ClaudeService {
                 timer.cancel()
                 
                 // Safe JSON parsing handling trailing ANSI escape codes
-                if let json = self.parseAuthStatusJson(from: outputData),
-                   let loggedIn = json["loggedIn"] as? Bool {
-                    if !loggedIn {
-                        // 만약 ~/.claude.json에 유효한 계정(Team/Pro/Max)이 남아있다면 로컬 설정 기반으로 정상 연동
-                        if let parsed = self.parseClaudeJsonConfig(), parsed.isConnected {
-                            let usageInfo = self.calculateRecent5HourUsage(planName: parsed.planName)
-                            DispatchQueue.main.async {
-                                completion(ClaudeUsage(
-                                    planName: parsed.planName,
-                                    usedPercent: usageInfo.usedPercent,
-                                    resetsAt: usageInfo.nextReset,
-                                    lastUpdated: Date(),
-                                    isConnected: true,
-                                    errorMessage: nil,
-                                    isChecking: false,
-                                    apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil,
-                                    weeklyUsedPercent: usageInfo.weeklyUsedPercent
-                                ))
-                            }
-                            return
-                        }
-                        
-                        UserDefaults.standard.removeObject(forKey: "catpacity_claude_usage_cache")
-                        self.lastKnownValidUsage = nil
+                let json = self.parseAuthStatusJson(from: outputData)
+                let loggedIn = (json?["loggedIn"] as? Bool) ?? false
+                
+                if !loggedIn {
+                    // 사용자가 설정에서 수동으로 특정 플랜을 지정한 경우에만 해당 오버라이드 플랜을 표시
+                    if self.planOverride != "auto", let parsed = self.parseClaudeJsonConfig(), parsed.isConnected {
+                        let usageInfo = self.calculateRecent5HourUsage(planName: parsed.planName)
                         DispatchQueue.main.async {
                             completion(ClaudeUsage(
-                                planName: "구독 없음",
-                                usedPercent: 0.0,
-                                resetsAt: nil,
+                                planName: parsed.planName,
+                                usedPercent: usageInfo.usedPercent,
+                                resetsAt: usageInfo.nextReset,
                                 lastUpdated: Date(),
-                                isConnected: false,
-                                errorMessage: "Claude 미연동: CLI 로그인 세션 만료 ('claude login' 필요)",
-                                isChecking: false
+                                isConnected: true,
+                                errorMessage: nil,
+                                isChecking: false,
+                                apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil,
+                                weeklyUsedPercent: usageInfo.weeklyUsedPercent
                             ))
                         }
                         return
                     }
+                    
+                    UserDefaults.standard.removeObject(forKey: "catpacity_claude_usage_cache")
+                    self.lastKnownValidUsage = nil
+                    DispatchQueue.main.async {
+                        completion(ClaudeUsage(
+                            planName: "미연동",
+                            usedPercent: 0.0,
+                            resetsAt: nil,
+                            lastUpdated: Date(),
+                            isConnected: false,
+                            errorMessage: "Claude 미연동: CLI 로그인 세션 만료 ('claude login' 필요) 또는 Desktop 앱 실행 필요",
+                            isChecking: false
+                        ))
+                    }
+                    return
                 }
                 
-                // Active login confirmed or local config check
+                // Active login confirmed (loggedIn == true)
                 self.fetchFromLocalClaudeConfig(completion: completion)
             } catch {
                 if didComplete { return }
                 didComplete = true
                 timer.cancel()
                 
-                if let parsed = self.parseClaudeJsonConfig(), parsed.isConnected {
+                if self.planOverride != "auto", let parsed = self.parseClaudeJsonConfig(), parsed.isConnected {
                     let usageInfo = self.calculateRecent5HourUsage(planName: parsed.planName)
                     DispatchQueue.main.async {
                         completion(ClaudeUsage(
@@ -592,7 +584,7 @@ public class ClaudeService {
         } else {
             DispatchQueue.main.async {
                 completion(ClaudeUsage(
-                    planName: "Claude Free",
+                    planName: "미연동",
                     usedPercent: 0.0,
                     resetsAt: nil,
                     lastUpdated: Date(),
@@ -924,22 +916,60 @@ public class ClaudeService {
         }
     }
     
-    // MARK: - 5. Detected Connection Status Description
-    public var detectedSourceDescription: String {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let desktopPath = home.appendingPathComponent("Library/Application Support/Claude/plan-usage-history.json").path
-        let hookPath = home.appendingPathComponent(".catpacity/claude_quota.json").path
+    public var hasCliInstalled: Bool {
+        return findClaudeBinary() != nil
+    }
+    
+    // MARK: - 5. Terminal OAuth Login Flow ('claude login')
+    public func launchTerminalLogin(completion: (() -> Void)? = nil) {
+        // 실시간 쿼터 훅도 사전에 미리 등록해 둠
+        _ = setupClaudeCodeIntegration()
         
-        if FileManager.default.fileExists(atPath: desktopPath) {
+        let binary = findClaudeBinary()
+        let command: String
+        if let bin = binary {
+            command = "\(bin) login"
+        } else {
+            command = "echo '🐱 Catpacity: Claude CLI를 확인하거나 설치 후 로그인을 진행합니다...' && (command -v claude >/dev/null 2>&1 && claude login || (npm install -g @anthropic-ai/claude-code && claude login))"
+        }
+        
+        let escapedCommand = command.replacingOccurrences(of: "\"", with: "\\\"")
+        let script = """
+        tell application "Terminal"
+            activate
+            do script "\(escapedCommand)"
+        end tell
+        """
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            if let appleScript = NSAppleScript(source: script) {
+                var error: NSDictionary?
+                appleScript.executeAndReturnError(&error)
+            }
+            DispatchQueue.main.async {
+                completion?()
+            }
+        }
+    }
+    
+    // MARK: - 6. Detected Connection Status Description
+    public var detectedSourceDescription: String {
+        if readDesktopPlanUsage() != nil {
             return "🖥️ Claude Desktop 앱 감지됨 (자동 연동)"
-        } else if FileManager.default.fileExists(atPath: hookPath) {
+        } else if readClaudeCodeQuotaHook() != nil {
             return "⚡ Claude Code 실시간 훅 연동됨"
-        } else if parseClaudeJsonConfig() != nil {
-            return "📁 ~/.claude.json 로그인 계정 감지됨"
+        } else if readClaudeJsonCache() != nil {
+            return "📁 Claude Code 캐시 연동됨"
         } else if !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return "🔑 Anthropic API 키 연동됨"
+        } else if planOverride != "auto" {
+            let label = planOverride == "free" ? "Claude Free (무료)" :
+                        planOverride == "pro" ? "Claude Pro" :
+                        planOverride == "max" ? "Claude Max" :
+                        planOverride == "team" ? "Claude Team" : "Claude Enterprise"
+            return "⚙️ 수동 지정 모드: \(label)"
         } else {
-            return "미연동 (Desktop 앱 또는 Claude Code 필요)"
+            return "미연동 ('claude login' 또는 Desktop 앱 필요)"
         }
     }
 }

@@ -208,6 +208,26 @@ public struct PopoverView: View {
                             )
                         }()
                         
+                        let claudeAction: ProviderCardAction? = {
+                            if !claude.isConnected {
+                                return ProviderCardAction(
+                                    title: "Claude 계정 연결 (OAuth)",
+                                    subtitle: "터미널에서 로그인하여 실시간 쿼터 연동",
+                                    buttonTitle: "터미널에서 로그인",
+                                    icon: "terminal.fill",
+                                    tintColor: .purple,
+                                    action: {
+                                        ClaudeService.shared.launchTerminalLogin {
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                                                appState.refreshClaude()
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+                            return nil
+                        }()
+                        
                         ProviderCardView(
                             iconName: "brain.head.profile",
                             providerTitle: "Anthropic Claude",
@@ -218,6 +238,7 @@ public struct PopoverView: View {
                             errorMessage: claude.errorMessage,
                             extraDetails: claudeDetails,
                             resetLabel: claudeSecondaryGauge != nil ? "5시간 리셋:" : "리셋:",
+                            customAction: claudeAction,
                             usageMode: claude.currentMode(hasApiKey: hasClaudeApiKey),
                             primaryGaugeTitle: claudeSecondaryGauge != nil ? "5시간 세션 한도" : (claude.planName.localizedCaseInsensitiveContains("free") ? "무료 세션 한도" : nil),
                             secondaryGauge: claudeSecondaryGauge,

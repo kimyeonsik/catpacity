@@ -249,9 +249,57 @@ public struct ProviderCardView: View {
             }
             
             if let error = errorMessage, !isConnected {
-                Text(error)
-                    .font(.system(size: 11))
-                    .foregroundColor(error.contains("확인 중") ? .secondary : .red.opacity(0.8))
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: error.contains("확인 중") ? "hourglass" : "exclamationmark.circle.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(error.contains("확인 중") ? .yellow : .orange)
+                            .padding(.top, 1)
+                        
+                        Text(error)
+                            .font(.system(size: 11))
+                            .foregroundColor(error.contains("확인 중") ? .secondary : .red.opacity(0.85))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    
+                    if let action = customAction {
+                        HStack(spacing: 8) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(action.title)
+                                    .font(.system(size: 10.5, weight: .bold))
+                                    .foregroundColor(.primary)
+                                if let subtitle = action.subtitle {
+                                    Text(subtitle)
+                                        .font(.system(size: 9))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            
+                            Spacer()
+                            
+                            Button(action: action.action) {
+                                HStack(spacing: 4) {
+                                    if action.isLoading {
+                                        ProgressView()
+                                            .controlSize(.mini)
+                                    } else if let icon = action.icon {
+                                        Image(systemName: icon)
+                                            .font(.system(size: 9.5))
+                                    }
+                                    Text(action.buttonTitle)
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(action.tintColor)
+                            .controlSize(.mini)
+                            .disabled(action.isLoading)
+                        }
+                        .padding(8)
+                        .background(action.tintColor.opacity(0.08))
+                        .cornerRadius(8)
+                    }
+                }
             } else {
                 // Progress Bar & Remaining Percentage
                 VStack(alignment: .leading, spacing: 5) {
