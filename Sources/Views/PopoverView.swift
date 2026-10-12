@@ -157,15 +157,15 @@ public struct PopoverView: View {
                         // Gemini Card
                         let gemini = appState.overallUsage.gemini
                         let hasGeminiApiKey = !GeminiService.shared.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        let geminiResetLabel: String = {
-                            if gemini.weeklyRemainingPercent != nil {
-                                if gemini.resetsAt != gemini.weeklyResetsAt {
-                                    return "5시간 리셋:"
-                                } else {
-                                    return "주간 리셋:"
-                                }
-                            }
-                            return "리셋:"
+                        let geminiSecondaryGauge: SecondaryGaugeInfo? = {
+                            guard gemini.isConnected, let weekly = gemini.weeklyRemainingPercent else { return nil }
+                            return SecondaryGaugeInfo(
+                                title: "주간 한도",
+                                remainingPercent: weekly,
+                                usedPercent: max(0.0, 100.0 - weekly),
+                                resetsAt: gemini.weeklyResetsAt,
+                                resetLabel: "주간 리셋:"
+                            )
                         }()
                         
                         ProviderCardView(
@@ -177,8 +177,10 @@ public struct PopoverView: View {
                             isConnected: gemini.isConnected,
                             errorMessage: gemini.errorMessage,
                             extraDetails: geminiDetails,
-                            resetLabel: geminiResetLabel,
+                            resetLabel: geminiSecondaryGauge != nil ? "5시간 리셋:" : "리셋:",
                             usageMode: gemini.currentMode(hasApiKey: hasGeminiApiKey),
+                            primaryGaugeTitle: geminiSecondaryGauge != nil ? "5시간 세션 한도" : nil,
+                            secondaryGauge: geminiSecondaryGauge,
                             onRefresh: {
                                 appState.refreshGemini()
                             }
@@ -189,6 +191,17 @@ public struct PopoverView: View {
                         // Claude Card
                         let claude = appState.overallUsage.claude
                         let hasClaudeApiKey = !ClaudeService.shared.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        let claudeSecondaryGauge: SecondaryGaugeInfo? = {
+                            guard claude.isConnected, let weekly = claude.weeklyRemainingPercent else { return nil }
+                            let weeklyUsed = claude.weeklyUsedPercent ?? max(0.0, 100.0 - weekly)
+                            return SecondaryGaugeInfo(
+                                title: "주간 한도 (7일)",
+                                remainingPercent: weekly,
+                                usedPercent: weeklyUsed,
+                                resetsAt: claude.weeklyResetsAt,
+                                resetLabel: "주간 리셋:"
+                            )
+                        }()
                         
                         ProviderCardView(
                             iconName: "brain.head.profile",
@@ -199,7 +212,10 @@ public struct PopoverView: View {
                             isConnected: claude.isConnected,
                             errorMessage: claude.errorMessage,
                             extraDetails: claudeDetails,
+                            resetLabel: claudeSecondaryGauge != nil ? "5시간 리셋:" : "리셋:",
                             usageMode: claude.currentMode(hasApiKey: hasClaudeApiKey),
+                            primaryGaugeTitle: claudeSecondaryGauge != nil ? "5시간 세션 한도" : nil,
+                            secondaryGauge: claudeSecondaryGauge,
                             onRefresh: {
                                 appState.refreshClaude()
                             }
@@ -353,14 +369,6 @@ public struct PopoverView: View {
                 items.append("Antigravity CLI 또는 AI Studio API 키 필요")
             }
         } else {
-            if let weekly = gemini.weeklyRemainingPercent {
-                items.append("주간 잔여 한도: \(Int(weekly))% 남음")
-            }
-            if let weeklyReset = gemini.weeklyResetsAt, gemini.resetsAt != weeklyReset {
-                let countdown = TimeFormatter.formatCountdown(until: weeklyReset)
-                let exact = TimeFormatter.formatExactTime(weeklyReset)
-                items.append("주간 리셋: \(countdown) (\(exact))")
-            }
             if let remTokens = gemini.remainingTokens, let limTokens = gemini.limitTokens {
                 items.append("잔여 토큰: \(remTokens.formatted()) / \(limTokens.formatted()) TPM")
             }
@@ -385,20 +393,15 @@ public struct PopoverView: View {
                 items.append("연동 소스: \(src)")
             }
             if claude.planName.contains("Enterprise") {
-                items.append("Claude Enterprise 플랜 (최대 한도 & 5시간 롤링)")
+                items.append("Claude Enterprise 플랜 (최대 한도)")
             } else if claude.planName.contains("Team") {
-                items.append("Claude Team 플랜 (팀 확장 한도 & 5시간 롤링)")
+                items.append("Claude Team 플랜 (팀 확장 한도)")
             } else if claude.planName.contains("Max") {
-                items.append("Claude Max 플랜 (우선 한도 & 5시간 롤링)")
+                items.append("Claude Max 플랜 (우선 한도)")
             } else if claude.planName.contains("Pro") {
-                items.append("Claude Pro 플랜 (5시간 롤링 리셋)")
+                items.append("Claude Pro 플랜 (기본 구독 한도)")
             } else if claude.planName.contains("API") {
                 items.append("Anthropic API 키 연동")
-            }
-            
-            if let weekly = claude.weeklyUsedPercent {
-                let remainingWeekly = max(0, 100 - Int(weekly))
-                items.append("주간 잔여 한도: \(remainingWeekly)% 남음")
             }
             
             if let tokens = claude.apiUsedTokens, tokens > 0 {

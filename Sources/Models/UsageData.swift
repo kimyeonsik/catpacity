@@ -307,6 +307,7 @@ public struct ClaudeUsage: Codable {
     public var apiEstimatedCost: Double?
     public var apiUsedTokens: Int?
     public var weeklyUsedPercent: Double?
+    public var weeklyResetsAt: Date?
     public var source: String?
     public var activeOrg: String?
     
@@ -321,6 +322,7 @@ public struct ClaudeUsage: Codable {
         apiEstimatedCost: Double? = nil,
         apiUsedTokens: Int? = nil,
         weeklyUsedPercent: Double? = nil,
+        weeklyResetsAt: Date? = nil,
         source: String? = nil,
         activeOrg: String? = nil
     ) {
@@ -334,6 +336,7 @@ public struct ClaudeUsage: Codable {
         self.apiEstimatedCost = apiEstimatedCost
         self.apiUsedTokens = apiUsedTokens
         self.weeklyUsedPercent = weeklyUsedPercent
+        self.weeklyResetsAt = weeklyResetsAt
         self.source = source
         self.activeOrg = activeOrg
     }
@@ -350,12 +353,18 @@ public struct ClaudeUsage: Codable {
         apiEstimatedCost = try container.decodeIfPresent(Double.self, forKey: .apiEstimatedCost)
         apiUsedTokens = try container.decodeIfPresent(Int.self, forKey: .apiUsedTokens)
         weeklyUsedPercent = try container.decodeIfPresent(Double.self, forKey: .weeklyUsedPercent)
+        weeklyResetsAt = try container.decodeIfPresent(Date.self, forKey: .weeklyResetsAt)
         source = try container.decodeIfPresent(String.self, forKey: .source)
         activeOrg = try container.decodeIfPresent(String.self, forKey: .activeOrg)
     }
     
     public var remainingPercent: Double {
         return max(0.0, 100.0 - usedPercent)
+    }
+    
+    public var weeklyRemainingPercent: Double? {
+        guard let w = weeklyUsedPercent else { return nil }
+        return max(0.0, 100.0 - w)
     }
     
     public func currentMode(hasApiKey: Bool, monthlyBudget: Double = 50.0) -> ProviderUsageMode {

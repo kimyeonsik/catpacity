@@ -254,7 +254,7 @@ public class ClaudeService {
         return nil
     }
     
-    private func calculateRecent5HourUsage(planName: String) -> (usedPercent: Double, usedTokens: Int, nextReset: Date) {
+    private func calculateRecent5HourUsage(planName: String) -> (usedPercent: Double, usedTokens: Int, nextReset: Date?) {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let projectsDir = home + "/.claude/projects"
         let fiveHoursAgo = Date().addingTimeInterval(-5 * 3600)
@@ -327,11 +327,11 @@ public class ClaudeService {
         }
         
         let calculatedPercent = min(100.0, max(0.0, Double(totalTokens) / limitTokens * 100.0))
-        let nextReset: Date
+        let nextReset: Date?
         if let earliest = earliestCallTime {
             nextReset = earliest.addingTimeInterval(5 * 3600)
         } else {
-            nextReset = calculateNextRollingReset(intervalHours: 5)
+            nextReset = nil // 토큰 소모가 없으면 세션 타이머 미시작!
         }
         
         return (usedPercent: calculatedPercent, usedTokens: totalTokens, nextReset: nextReset)
@@ -400,16 +400,17 @@ public class ClaudeService {
                     
                     // 타임아웃 발생 시에도 ~/.claude.json 확인
                     if let parsed = self.parseClaudeJsonConfig(), parsed.isConnected {
-                        let resetDate = self.calculateNextRollingReset(intervalHours: 5)
+                        let usageInfo = self.calculateRecent5HourUsage(planName: parsed.planName)
                         DispatchQueue.main.async {
                             completion(ClaudeUsage(
                                 planName: parsed.planName,
-                                usedPercent: 0.0,
-                                resetsAt: resetDate,
+                                usedPercent: usageInfo.usedPercent,
+                                resetsAt: usageInfo.nextReset,
                                 lastUpdated: Date(),
                                 isConnected: true,
                                 errorMessage: nil,
-                                isChecking: false
+                                isChecking: false,
+                                apiUsedTokens: usageInfo.usedTokens > 0 ? usageInfo.usedTokens : nil
                             ))
                         }
                     } else if var cached = self.lastKnownValidUsage, cached.isConnected {
@@ -562,12 +563,11 @@ public class ClaudeService {
                 ))
             }
         } else {
-            let resetDate = calculateNextRollingReset(intervalHours: 5)
             DispatchQueue.main.async {
                 completion(ClaudeUsage(
                     planName: "Claude Free",
                     usedPercent: 0.0,
-                    resetsAt: resetDate,
+                    resetsAt: nil,
                     lastUpdated: Date(),
                     isConnected: false,
                     errorMessage: "Claude 계정 로그인 정보 없음 ('claude login' 필요)"
@@ -601,7 +601,6 @@ public class ClaudeService {
                         usedPercent = Double(lim - rem) / Double(lim) * 100.0
                     }
                     
-                    let nextReset = self.calculateNextRollingReset(intervalHours: 5)
                     let usedTokens = (limitTok != nil && remainingTok != nil && limitTok! >= remainingTok!) ? (limitTok! - remainingTok!) : nil
                     let estimatedCost = usedTokens != nil ? Double(usedTokens!) * 0.000009 : nil
                     
@@ -609,7 +608,7 @@ public class ClaudeService {
                         completion(ClaudeUsage(
                             planName: "Anthropic API",
                             usedPercent: min(100.0, max(0.0, usedPercent)),
-                            resetsAt: nextReset,
+                            resetsAt: nil,
                             lastUpdated: Date(),
                             isConnected: true,
                             errorMessage: nil,
@@ -623,20 +622,6 @@ public class ClaudeService {
             
             self.checkClaudeCliAuth(completion: completion)
         }.resume()
-    }
-    
-    private func calculateNextRollingReset(intervalHours: Int) -> Date {
-        let now = Date()
-        let cal = Calendar.current
-        let currentHour = cal.component(.hour, from: now)
-        let nextBlockHour = ((currentHour / intervalHours) + 1) * intervalHours
-        
-        var comp = cal.dateComponents([.year, .month, .day], from: now)
-        comp.hour = nextBlockHour
-        comp.minute = 0
-        comp.second = 0
-        
-        return cal.date(from: comp) ?? now.addingTimeInterval(TimeInterval(intervalHours * 3600))
     }
     
     private func fetchApiCostOnly(key: String, completion: @escaping (Double?, Int?) -> Void) {
@@ -682,20 +667,47 @@ public class ClaudeService {
         }
         
         let sampleDate = Date(timeIntervalSince1970: timestampMs / 1000.0)
-        let fiveHoursAgo = Date().addingTimeInterval(-5 * 3600)
+        let now = Date()
+        
+        // 마지막 샘플이 24시간 이상 지난 과거 파일이라면 현재 활성 상태가 아니므로 무시
+        guard now.timeIntervalSince(sampleDate) < 24 * 3600 else {
+            return nil
+        }
+        
+        let fiveHoursAgo = now.addingTimeInterval(-5 * 3600)
         
         // 5시간 쿼터 소모율 (fh)
         let fh = (u["fh"] as? Double) ?? Double(u["fh"] as? Int ?? 0)
         // 7일 주간 쿼터 소모율 (sd)
         let sd = (u["sd"] as? Double) ?? (u["sd"] as? Int).map { Double($0) }
         
-        // 5시간 세션 리셋 시간 계산
-        let resetDate: Date
-        if sampleDate >= fiveHoursAgo {
-            resetDate = sampleDate.addingTimeInterval(5 * 3600)
+        // 5시간 세션 리셋 시간 및 사용량 계산
+        let currentUsedPercent: Double
+        let resetDate: Date?
+        
+        if sampleDate >= fiveHoursAgo && fh > 0 {
+            currentUsedPercent = min(100.0, max(0.0, fh))
+            
+            // 이번 5시간 세션이 시작된 최초 시점(fh가 증가하기 시작한 첫 샘플)을 역추적
+            var sessionStartDate = sampleDate
+            for s in samples.reversed() {
+                guard let tMs = s["t"] as? Double else { continue }
+                let sDate = Date(timeIntervalSince1970: tMs / 1000.0)
+                if sDate < fiveHoursAgo { break }
+                if let sU = s["u"] as? [String: Any] {
+                    let sFh = (sU["fh"] as? Double) ?? Double(sU["fh"] as? Int ?? 0)
+                    if sFh > 0 {
+                        sessionStartDate = sDate
+                    } else {
+                        break
+                    }
+                }
+            }
+            resetDate = sessionStartDate.addingTimeInterval(5 * 3600)
         } else {
-            // 마지막 샘플이 5시간 이상 전이라면 현재 윈도우는 리셋된 상태
-            resetDate = calculateNextRollingReset(intervalHours: 5)
+            // 마지막 샘플이 5시간 이상 전이거나 fh == 0이면 세션 미사용 상태
+            currentUsedPercent = 0.0
+            resetDate = nil
         }
         
         // 플랜 이름 결정
@@ -716,7 +728,7 @@ public class ClaudeService {
         
         return ClaudeUsage(
             planName: planName,
-            usedPercent: sampleDate >= fiveHoursAgo ? min(100.0, max(0.0, fh)) : 0.0,
+            usedPercent: currentUsedPercent,
             resetsAt: resetDate,
             lastUpdated: sampleDate,
             isConnected: true,
@@ -752,8 +764,12 @@ public class ClaudeService {
         }
         
         var weeklyPct: Double? = nil
+        var weeklyResetDate: Date? = nil
         if let sevenDay = rateLimits["seven_day"] as? [String: Any] {
             weeklyPct = (sevenDay["used_percentage"] as? Double) ?? (sevenDay["used_percentage"] as? Int).map { Double($0) }
+            if let resetsAtSec = sevenDay["resets_at"] as? Double {
+                weeklyResetDate = Date(timeIntervalSince1970: resetsAtSec)
+            }
         }
         
         let modDate = (try? FileManager.default.attributesOfItem(atPath: quotaPath)[.modificationDate] as? Date) ?? Date()
@@ -768,12 +784,13 @@ public class ClaudeService {
         return ClaudeUsage(
             planName: planName,
             usedPercent: min(100.0, max(0.0, usedPct)),
-            resetsAt: resetDate ?? calculateNextRollingReset(intervalHours: 5),
+            resetsAt: resetDate,
             lastUpdated: modDate,
             isConnected: true,
             errorMessage: nil,
             isChecking: false,
             weeklyUsedPercent: weeklyPct,
+            weeklyResetsAt: weeklyResetDate,
             source: "Claude Code 실시간 훅"
         )
     }
@@ -788,10 +805,10 @@ public class ClaudeService {
         
         for path in candidates {
             guard let data = FileManager.default.contents(atPath: path),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let cache = json["cachedUsageUtilization"] as? [String: Any],
-                  let util = cache["utilization"] as? [String: Any],
-                  let fiveHour = util["five_hour"] as? [String: Any] else {
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let cache = json["cachedUsageUtilization"] as? [String: Any],
+              let util = cache["utilization"] as? [String: Any],
+              let fiveHour = util["five_hour"] as? [String: Any] else {
                 continue
             }
             
@@ -806,8 +823,16 @@ public class ClaudeService {
             }
             
             var weeklyPct: Double? = nil
+            var weeklyResetDate: Date? = nil
             if let sevenDay = util["seven_day"] as? [String: Any] {
                 weeklyPct = (sevenDay["utilization"] as? Double) ?? (sevenDay["utilization"] as? Int).map { Double($0) }
+                if let resetsAt = sevenDay["resets_at"] as? String {
+                    let iso = ISO8601DateFormatter()
+                    iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    weeklyResetDate = iso.date(from: resetsAt) ?? ISO8601DateFormatter().date(from: resetsAt)
+                } else if let resetsAtSec = sevenDay["resets_at"] as? Double {
+                    weeklyResetDate = Date(timeIntervalSince1970: resetsAtSec)
+                }
             }
             
             let fetchedAtMs = cache["fetchedAtMs"] as? Double ?? 0
@@ -823,12 +848,13 @@ public class ClaudeService {
             return ClaudeUsage(
                 planName: planName,
                 usedPercent: min(100.0, max(0.0, usedPct)),
-                resetsAt: resetDate ?? calculateNextRollingReset(intervalHours: 5),
+                resetsAt: resetDate,
                 lastUpdated: cacheDate,
                 isConnected: true,
                 errorMessage: nil,
                 isChecking: false,
                 weeklyUsedPercent: weeklyPct,
+                weeklyResetsAt: weeklyResetDate,
                 source: "Claude Code 캐시"
             )
         }

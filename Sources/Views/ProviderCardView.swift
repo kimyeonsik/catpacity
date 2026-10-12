@@ -28,6 +28,28 @@ public struct ProviderCardAction {
     }
 }
 
+public struct SecondaryGaugeInfo {
+    public let title: String
+    public let remainingPercent: Double
+    public let usedPercent: Double
+    public let resetsAt: Date?
+    public let resetLabel: String
+    
+    public init(
+        title: String = "주간 한도 (7일)",
+        remainingPercent: Double,
+        usedPercent: Double,
+        resetsAt: Date? = nil,
+        resetLabel: String = "주간 리셋:"
+    ) {
+        self.title = title
+        self.remainingPercent = remainingPercent
+        self.usedPercent = usedPercent
+        self.resetsAt = resetsAt
+        self.resetLabel = resetLabel
+    }
+}
+
 public struct ProviderCardView: View {
     public let iconName: String
     public let providerTitle: String
@@ -42,6 +64,8 @@ public struct ProviderCardView: View {
     public let badgeColor: Color
     public let customAction: ProviderCardAction?
     public let usageMode: ProviderUsageMode?
+    public let primaryGaugeTitle: String?
+    public let secondaryGauge: SecondaryGaugeInfo?
     public let onRefresh: () -> Void
     
     public init(
@@ -58,6 +82,8 @@ public struct ProviderCardView: View {
         badgeColor: Color = .purple,
         customAction: ProviderCardAction? = nil,
         usageMode: ProviderUsageMode? = nil,
+        primaryGaugeTitle: String? = nil,
+        secondaryGauge: SecondaryGaugeInfo? = nil,
         onRefresh: @escaping () -> Void
     ) {
         self.iconName = iconName
@@ -73,6 +99,8 @@ public struct ProviderCardView: View {
         self.badgeColor = badgeColor
         self.customAction = customAction
         self.usageMode = usageMode
+        self.primaryGaugeTitle = primaryGaugeTitle
+        self.secondaryGauge = secondaryGauge
         self.onRefresh = onRefresh
     }
     
@@ -171,7 +199,11 @@ public struct ProviderCardView: View {
                 return .secondary
             }
         }
-        switch remainingPercent {
+        return colorForRemaining(remainingPercent)
+    }
+    
+    private func colorForRemaining(_ percent: Double) -> Color {
+        switch percent {
         case 60...:   return .green
         case 30..<60: return .yellow
         case 15..<30: return .orange
@@ -258,7 +290,8 @@ public struct ProviderCardView: View {
                                     .foregroundColor(.red)
                             }
                         } else {
-                            Text("잔여량")
+                            let labelTitle = primaryGaugeTitle ?? (secondaryGauge != nil ? "5시간 세션 한도" : "잔여량")
+                            Text(labelTitle)
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(.secondary)
                             Spacer()
@@ -293,7 +326,7 @@ public struct ProviderCardView: View {
                 }
                 
                 // Reset Countdown Info
-                if resetsAt != nil || usageMode != nil {
+                if let resetDate = resetsAt {
                     HStack(spacing: 5) {
                         Image(systemName: "clock.arrow.circlepath")
                             .font(.system(size: 10))
@@ -303,19 +336,105 @@ public struct ProviderCardView: View {
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.secondary)
                         
-                        Text(TimeFormatter.formatCountdown(until: resetsAt))
+                        Text(TimeFormatter.formatCountdown(until: resetDate))
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(.primary)
                         
-                        if let resetDate = resetsAt {
-                            Text("(\(TimeFormatter.formatExactTime(resetDate)))")
-                                .font(.system(size: 9.5))
-                                .foregroundColor(.secondary)
-                        }
+                        Text("(\(TimeFormatter.formatExactTime(resetDate)))")
+                            .font(.system(size: 9.5))
+                            .foregroundColor(.secondary)
                         
                         Spacer()
                     }
                     .padding(.vertical, 2)
+                } else if usedPercent == 0 && secondaryGauge != nil {
+                    // 듀얼 게이지(세션 한도)인데 아직 세션을 시작하지 않은 경우
+                    HStack(spacing: 5) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                        
+                        Text("세션 대기 중")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.secondary)
+                        
+                        Text("(첫 메시지 전송 후 5시간 카운트)")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary.opacity(0.8))
+                        
+                        Spacer()
+                    }
+                    .padding(.vertical, 2)
+                }
+                
+                // Secondary Gauge (e.g. 7-Day Weekly Limit for Claude / Gemini)
+                if let sec = secondaryGauge {
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack {
+                            Text(sec.title)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text("\(String(format: "%.1f", sec.remainingPercent))% 남음")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(colorForRemaining(sec.remainingPercent))
+                            Text("(사용: \(String(format: "%.0f", sec.usedPercent))%)")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        GeometryReader { geo in
+                            let secRatio = max(0.0, min(1.0, sec.remainingPercent / 100.0))
+                            let secColor = colorForRemaining(sec.remainingPercent)
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Color.primary.opacity(0.08))
+                                    .frame(height: 7)
+                                
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [secColor.opacity(0.8), secColor],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .frame(width: max(0, min(geo.size.width, geo.size.width * CGFloat(secRatio))), height: 7)
+                            }
+                        }
+                        .frame(height: 7)
+                        
+                        if let secReset = sec.resetsAt {
+                            HStack(spacing: 5) {
+                                Image(systemName: "calendar.badge.clock")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.secondary)
+                                Text(sec.resetLabel)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                Text(TimeFormatter.formatCountdown(until: secReset))
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.primary)
+                                Text("(\(TimeFormatter.formatExactTime(secReset)))")
+                                    .font(.system(size: 9.5))
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
+                            .padding(.top, 1)
+                        } else {
+                            HStack(spacing: 5) {
+                                Image(systemName: "calendar")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.secondary)
+                                Text("주간 롤링 윈도우")
+                                    .font(.system(size: 10.5))
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
+                            .padding(.top, 1)
+                        }
+                    }
+                    .padding(.top, 2)
                 }
                 
                 // Mode-specific and extra metadata rows
