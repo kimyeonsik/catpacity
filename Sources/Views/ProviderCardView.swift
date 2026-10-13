@@ -50,6 +50,18 @@ public struct SecondaryGaugeInfo {
     }
 }
 
+public struct UnmeasurableNotice {
+    public let title: String
+    public let message: String
+    public let tip: String?
+    
+    public init(title: String, message: String, tip: String? = nil) {
+        self.title = title
+        self.message = message
+        self.tip = tip
+    }
+}
+
 public struct ProviderCardView: View {
     public let iconName: String
     public let providerTitle: String
@@ -66,6 +78,7 @@ public struct ProviderCardView: View {
     public let usageMode: ProviderUsageMode?
     public let primaryGaugeTitle: String?
     public let secondaryGauge: SecondaryGaugeInfo?
+    public let unmeasurableNotice: UnmeasurableNotice?
     public let onRefresh: () -> Void
     
     public init(
@@ -84,6 +97,7 @@ public struct ProviderCardView: View {
         usageMode: ProviderUsageMode? = nil,
         primaryGaugeTitle: String? = nil,
         secondaryGauge: SecondaryGaugeInfo? = nil,
+        unmeasurableNotice: UnmeasurableNotice? = nil,
         onRefresh: @escaping () -> Void
     ) {
         self.iconName = iconName
@@ -101,6 +115,7 @@ public struct ProviderCardView: View {
         self.usageMode = usageMode
         self.primaryGaugeTitle = primaryGaugeTitle
         self.secondaryGauge = secondaryGauge
+        self.unmeasurableNotice = unmeasurableNotice
         self.onRefresh = onRefresh
     }
     
@@ -125,6 +140,9 @@ public struct ProviderCardView: View {
         if let text = badgeText, !text.isEmpty {
             return text
         }
+        if unmeasurableNotice != nil {
+            return "무료 플랜"
+        }
         guard let mode = usageMode else { return nil }
         switch mode {
         case .subscriptionActive:
@@ -140,6 +158,9 @@ public struct ProviderCardView: View {
     }
     
     public var effectiveBadgeColor: Color {
+        if unmeasurableNotice != nil {
+            return Color.blue.opacity(0.8)
+        }
         guard let mode = usageMode else { return badgeColor }
         switch mode {
         case .subscriptionActive:
@@ -239,7 +260,7 @@ public struct ProviderCardView: View {
                     }
                     
                     Circle()
-                        .fill(isConnected ? Color.green : (errorMessage?.contains("확인 중") == true ? Color.yellow : Color.red.opacity(0.8)))
+                        .fill(unmeasurableNotice != nil ? Color.blue.opacity(0.8) : (isConnected ? Color.green : (errorMessage?.contains("확인 중") == true ? Color.yellow : Color.red.opacity(0.8))))
                         .frame(width: 6, height: 6)
                     
                     Text(planName)
@@ -300,6 +321,37 @@ public struct ProviderCardView: View {
                         .cornerRadius(8)
                     }
                 }
+            } else if let notice = unmeasurableNotice {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "info.circle.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(.blue)
+                        Text(notice.title)
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.primary)
+                    }
+                    
+                    Text(notice.message)
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                    if let tip = notice.tip {
+                        Text(tip)
+                            .font(.system(size: 9.5))
+                            .foregroundColor(.secondary.opacity(0.85))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(9)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.blue.opacity(0.06))
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.blue.opacity(0.15), lineWidth: 0.5)
+                )
             } else {
                 // Progress Bar & Remaining Percentage
                 VStack(alignment: .leading, spacing: 5) {

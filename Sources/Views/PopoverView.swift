@@ -191,10 +191,18 @@ public struct PopoverView: View {
                         // Claude Card
                         let claude = appState.overallUsage.claude
                         let hasClaudeApiKey = !ClaudeService.shared.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        let isClaudeFree = (claude.planName.localizedCaseInsensitiveContains("free") || ClaudeService.shared.planOverride == "free") && !hasClaudeApiKey
+                        
+                        let claudeNotice: UnmeasurableNotice? = isClaudeFree ? UnmeasurableNotice(
+                            title: "웹 무료 플랜 (쿼터 측정 미지원)",
+                            message: "Anthropic 정책상 무료 요금제(claude.ai)는 외부 사용량 조회를 지원하지 않아 쿼터 게이지가 표시되지 않습니다.",
+                            tip: "• Claude Pro/Team 구독 시 또는 API 키 등록 시 실시간 쿼터가 자동으로 측정됩니다."
+                        ) : nil
+                        
                         let claudeSecondaryGauge: SecondaryGaugeInfo? = {
                             guard claude.isConnected else { return nil }
-                            // 무료 플랜(Claude Free)은 주간 쿼터가 없으므로 5시간 세션 단일 게이지로 안내
-                            if claude.planName.localizedCaseInsensitiveContains("free") {
+                            // 무료 플랜은 주간 쿼터가 없으므로 생략
+                            if isClaudeFree || claude.planName.localizedCaseInsensitiveContains("free") {
                                 return nil
                             }
                             let weeklyRemaining = claude.weeklyRemainingPercent ?? max(0.0, 100.0 - (claude.weeklyUsedPercent ?? 0.0))
@@ -240,8 +248,9 @@ public struct PopoverView: View {
                             resetLabel: claudeSecondaryGauge != nil ? "5시간 리셋:" : "리셋:",
                             customAction: claudeAction,
                             usageMode: claude.currentMode(hasApiKey: hasClaudeApiKey),
-                            primaryGaugeTitle: claudeSecondaryGauge != nil ? "5시간 세션 한도" : (claude.planName.localizedCaseInsensitiveContains("free") ? "무료 세션 한도" : nil),
+                            primaryGaugeTitle: claudeSecondaryGauge != nil ? "5시간 세션 한도" : nil,
                             secondaryGauge: claudeSecondaryGauge,
+                            unmeasurableNotice: claudeNotice,
                             onRefresh: {
                                 appState.refreshClaude()
                             }
@@ -408,6 +417,13 @@ public struct PopoverView: View {
     private var claudeDetails: [String] {
         var items: [String] = []
         let claude = appState.overallUsage.claude
+        let hasClaudeApiKey = !ClaudeService.shared.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let isClaudeFree = (claude.planName.localizedCaseInsensitiveContains("free") || ClaudeService.shared.planOverride == "free") && !hasClaudeApiKey
+        
+        if isClaudeFree {
+            return items
+        }
+        
         if !claude.isConnected {
             if claude.isChecking || claude.errorMessage?.contains("확인 중") == true {
                 items.append("Claude 연결 확인 중...")

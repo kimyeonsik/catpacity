@@ -413,6 +413,13 @@ public struct ClaudeUsage: Codable {
             activeOrg: nil
         )
     }
+    public var isMeasurable: Bool {
+        guard isConnected else { return false }
+        if planName.localizedCaseInsensitiveContains("free") && (apiEstimatedCost == nil && apiUsedTokens == nil) {
+            return false
+        }
+        return true
+    }
 }
 
 public struct OverallUsage {
@@ -424,7 +431,7 @@ public struct OverallUsage {
         var values: [Double] = []
         if showCodex && codex.isConnected { values.append(codex.usedPercent) }
         if showGemini && gemini.isConnected { values.append(gemini.usedPercent) }
-        if showClaude && claude.isConnected { values.append(claude.usedPercent) }
+        if showClaude && claude.isMeasurable { values.append(claude.usedPercent) }
         return values.max() ?? 0.0
     }
     
@@ -432,7 +439,7 @@ public struct OverallUsage {
         var values: [Double] = []
         if showCodex && codex.isConnected { values.append(codex.remainingPercent) }
         if showGemini && gemini.isConnected { values.append(gemini.remainingPercent) }
-        if showClaude && claude.isConnected { values.append(claude.remainingPercent) }
+        if showClaude && claude.isMeasurable { values.append(claude.remainingPercent) }
         if values.isEmpty {
             return 100.0
         }
@@ -461,8 +468,11 @@ public struct OverallUsage {
                 return (fallback, "최저 잔여량 (Gemini 미연동)")
             }
         case .claude:
-            if claude.isConnected {
+            if claude.isMeasurable {
                 return (claude.remainingPercent, "Anthropic Claude")
+            } else if claude.isConnected && claude.planName.localizedCaseInsensitiveContains("free") {
+                let fallback = minRemainingPercent(showCodex: showCodex, showGemini: showGemini, showClaude: false)
+                return (fallback, "Claude Free (측정 미지원)")
             } else {
                 let fallback = minRemainingPercent(showCodex: showCodex, showGemini: showGemini, showClaude: false)
                 return (fallback, "최저 잔여량 (Claude 미연동)")
@@ -471,7 +481,7 @@ public struct OverallUsage {
             var values: [Double] = []
             if showCodex && codex.isConnected { values.append(codex.remainingPercent) }
             if showGemini && gemini.isConnected { values.append(gemini.remainingPercent) }
-            if showClaude && claude.isConnected { values.append(claude.remainingPercent) }
+            if showClaude && claude.isMeasurable { values.append(claude.remainingPercent) }
             if values.isEmpty {
                 return (100.0, "전체 평균")
             }
@@ -481,7 +491,7 @@ public struct OverallUsage {
             var items: [(name: String, rem: Double)] = []
             if showCodex && codex.isConnected { items.append(("Codex", codex.remainingPercent)) }
             if showGemini && gemini.isConnected { items.append(("Gemini", gemini.remainingPercent)) }
-            if showClaude && claude.isConnected { items.append(("Claude", claude.remainingPercent)) }
+            if showClaude && claude.isMeasurable { items.append(("Claude", claude.remainingPercent)) }
             if let minItem = items.min(by: { $0.rem < $1.rem }) {
                 return (minItem.rem, "최저: \(minItem.name)")
             } else {
