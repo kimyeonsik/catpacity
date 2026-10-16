@@ -932,35 +932,85 @@ public class ClaudeService {
     }
     
     // MARK: - 5. Terminal OAuth Login Flow ('claude login')
-    public func launchTerminalLogin(completion: (() -> Void)? = nil) {
-        // 실시간 쿼터 훅도 사전에 미리 등록해 둠
+    public func launchTerminalInstallAndLogin(completion: (() -> Void)? = nil) {
         _ = setupClaudeCodeIntegration()
         
-        let binary = findClaudeBinary()
-        let command: String
-        if let bin = binary {
-            command = "\(bin) login"
-        } else {
-            command = "echo '🐱 Catpacity: Claude CLI를 확인하거나 설치 후 로그인을 진행합니다...' && (command -v claude >/dev/null 2>&1 && claude login || (npm install -g @anthropic-ai/claude-code && claude login))"
-        }
-        
-        let escapedCommand = command.replacingOccurrences(of: "\"", with: "\\\"")
         let script = """
-        tell application "Terminal"
-            activate
-            do script "\(escapedCommand)"
-        end tell
+        echo "🔍 시스템 환경(Node.js, Bun, Homebrew)을 점검합니다..."
+        
+        INSTALL_SUCCESS=0
+        
+        if command -v brew >/dev/null 2>&1; then
+            echo "📦 Homebrew가 감지되었습니다. 'brew install claude-code'로 설치를 시도합니다..."
+            if brew install claude-code; then
+                INSTALL_SUCCESS=1
+            fi
+        fi
+        
+        if [ $INSTALL_SUCCESS -eq 0 ] && command -v npm >/dev/null 2>&1; then
+            echo "📦 Node.js(npm)가 감지되었습니다. 'npm install -g @anthropic-ai/claude-code'로 설치를 진행합니다..."
+            if npm install -g @anthropic-ai/claude-code; then
+                INSTALL_SUCCESS=1
+            fi
+        fi
+        
+        if [ $INSTALL_SUCCESS -eq 0 ] && command -v bun >/dev/null 2>&1; then
+            echo "📦 Bun이 감지되었습니다. 'bun add -g @anthropic-ai/claude-code'로 설치를 진행합니다..."
+            if bun add -g @anthropic-ai/claude-code; then
+                INSTALL_SUCCESS=1
+            fi
+        fi
+        
+        if [ $INSTALL_SUCCESS -eq 0 ]; then
+            echo ""
+            echo "❌ 자동 설치 실패: 시스템에 Homebrew 또는 Node.js(npm)가 설치되어 있지 않습니다."
+            echo "🌐 Node.js 공식 홈페이지(https://nodejs.org)에서 설치 후 다시 시도해주세요."
+            echo ""
+            return 1
+        fi
+        
+        echo ""
+        echo "✅ Claude CLI (Claude Code) 설치 완료!"
+        echo "🔑 공식 계정 로그인을 진행합니다 ('claude login')..."
+        echo "   (브라우저가 열리면 Anthropic 계정으로 승인해주세요)"
+        echo ""
+        
+        if command -v claude >/dev/null 2>&1; then
+            claude login
+        else
+            echo "⚠️ 터미널 환경을 갱신하거나 새 터미널에서 'claude login'을 실행해주세요."
+        fi
         """
         
-        DispatchQueue.global(qos: .userInitiated).async {
-            if let appleScript = NSAppleScript(source: script) {
-                var error: NSDictionary?
-                appleScript.executeAndReturnError(&error)
-            }
-            DispatchQueue.main.async {
-                completion?()
-            }
+        TerminalHelper.runInTerminal(
+            title: "Anthropic Claude CLI 지능형 자동 설치 & 로그인",
+            script: script,
+            scriptName: "install_claude",
+            completion: completion
+        )
+    }
+    
+    public func launchTerminalLogin(completion: (() -> Void)? = nil) {
+        _ = setupClaudeCodeIntegration()
+        
+        guard let binary = findClaudeBinary() else {
+            launchTerminalInstallAndLogin(completion: completion)
+            return
         }
+        
+        let script = """
+        echo "🔑 Claude 계정 로그인을 진행합니다 ('\(binary) login')..."
+        echo "   (브라우저가 열리면 Anthropic 계정으로 승인해주세요)"
+        echo ""
+        "\(binary)" login
+        """
+        
+        TerminalHelper.runInTerminal(
+            title: "Claude 계정 로그인 (OAuth)",
+            script: script,
+            scriptName: "login_claude",
+            completion: completion
+        )
     }
     
     // MARK: - 6. Detected Connection Status Description

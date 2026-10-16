@@ -53,7 +53,7 @@ public class CodexService {
                     } else {
                         DispatchQueue.main.async {
                             var usage = CodexUsage.initial
-                            usage.errorMessage = "Codex 미설치: 터미널에서 'npm i -g @openai/codex' 실행 또는 API 키 입력"
+                            usage.errorMessage = "Codex 미설치: [터미널 자동 설치] 버튼 클릭 또는 API 키 입력"
                             usage.isChecking = false
                             completion(usage)
                         }
@@ -614,4 +614,93 @@ public class CodexService {
         
         return cal.date(from: comp) ?? now.addingTimeInterval(TimeInterval(intervalHours * 3600))
     }
+    
+    // MARK: - Smart Terminal Installer & Login Flow
+    public var hasCliInstalled: Bool {
+        return findCodexBinary() != nil
+    }
+    
+    public func launchTerminalInstallAndLogin(completion: (() -> Void)? = nil) {
+        let script = """
+        echo "🔍 시스템 환경(Node.js, Bun, Homebrew)을 점검합니다..."
+        
+        INSTALL_SUCCESS=0
+        
+        if command -v brew >/dev/null 2>&1; then
+            echo "📦 Homebrew가 감지되었습니다. 'brew install codex'로 설치를 시도합니다..."
+            if brew install codex; then
+                INSTALL_SUCCESS=1
+            fi
+        fi
+        
+        if [ $INSTALL_SUCCESS -eq 0 ] && command -v npm >/dev/null 2>&1; then
+            echo "📦 Node.js(npm)가 감지되었습니다. 'npm install -g @openai/codex'로 설치를 진행합니다..."
+            if npm install -g @openai/codex; then
+                INSTALL_SUCCESS=1
+            fi
+        fi
+        
+        if [ $INSTALL_SUCCESS -eq 0 ] && command -v bun >/dev/null 2>&1; then
+            echo "📦 Bun이 감지되었습니다. 'bun add -g @openai/codex'로 설치를 진행합니다..."
+            if bun add -g @openai/codex; then
+                INSTALL_SUCCESS=1
+            fi
+        fi
+        
+        if [ $INSTALL_SUCCESS -eq 0 ]; then
+            echo ""
+            echo "❌ 자동 설치 실패: 시스템에 Homebrew 또는 Node.js(npm)가 설치되어 있지 않습니다."
+            echo "🌐 Node.js 공식 홈페이지(https://nodejs.org)에서 설치 후 다시 시도해주세요."
+            echo ""
+            return 1
+        fi
+        
+        echo ""
+        echo "✅ Codex CLI 설치가 완료되었습니다!"
+        echo "🔑 이제 OpenAI Codex 계정 로그인을 진행합니다..."
+        echo "   (브라우저가 열리면 OpenAI 계정으로 인증을 완료해주세요)"
+        echo ""
+        
+        if command -v codex >/dev/null 2>&1; then
+            codex login
+        else
+            echo "⚠️ 터미널 환경을 갱신하거나 새 터미널에서 'codex login'을 실행해주세요."
+        fi
+        """
+        
+        TerminalHelper.runInTerminal(
+            title: "OpenAI Codex CLI 지능형 자동 설치 & 로그인",
+            script: script,
+            scriptName: "install_codex",
+            completion: completion
+        )
+    }
+    
+    public func launchTerminalLogin(completion: (() -> Void)? = nil) {
+        let binary = findCodexBinary() ?? "codex"
+        let script = """
+        echo "🔑 OpenAI Codex 계정 로그인을 진행합니다..."
+        echo "   (브라우저가 열리면 OpenAI 계정으로 인증을 완료해주세요)"
+        echo ""
+        "\(binary)" login
+        """
+        
+        TerminalHelper.runInTerminal(
+            title: "OpenAI Codex 계정 로그인 (OAuth)",
+            script: script,
+            scriptName: "login_codex",
+            completion: completion
+        )
+    }
+    
+    public var detectedSourceDescription: String {
+        if let bin = findCodexBinary() {
+            return "🖥️ Codex CLI 설치됨 (\(bin))"
+        } else if !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "🔑 OpenAI API 키 연동됨"
+        } else {
+            return "미설치 / 미연동 ('npm i -g @openai/codex' 필요)"
+        }
+    }
 }
+

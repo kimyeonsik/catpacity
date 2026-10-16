@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 public class GeminiService {
     public static let shared = GeminiService()
@@ -465,4 +466,41 @@ public class GeminiService {
             }
         }.resume()
     }
+    
+    // MARK: - Smart Helpers & Links
+    public var hasAgyInstalled: Bool {
+        return findAgyBinary() != nil
+    }
+    
+    public func openAiStudioWeb() {
+        if let url = URL(string: "https://aistudio.google.com/app/apikey") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+    
+    public func launchTerminalLogin(completion: (() -> Void)? = nil) {
+        let binary = findAgyBinary() ?? "agy"
+        let script = """
+        echo "🔍 Google Antigravity 세션 확인 및 쿼터를 동기화합니다..."
+        "\(binary)" -p /quota
+        """
+        
+        TerminalHelper.runInTerminal(
+            title: "Google Antigravity 쿼터 동기화",
+            script: script,
+            scriptName: "sync_agy",
+            completion: completion
+        )
+    }
+    
+    public var detectedSourceDescription: String {
+        if let bin = findAgyBinary() {
+            return "🖥️ Antigravity CLI 감지됨 (\(bin))"
+        } else if !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "🔑 Google AI Studio API 키 연동됨"
+        } else {
+            return "미연동 (무료 AI Studio API 키 발급 또는 Antigravity 필요)"
+        }
+    }
 }
+

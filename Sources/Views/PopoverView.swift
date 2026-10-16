@@ -122,17 +122,54 @@ public struct PopoverView: View {
                         // Codex Card
                         let codex = appState.overallUsage.codex
                         let hasCodexApiKey = !CodexService.shared.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        let resetAction: ProviderCardAction? = codex.isConnected && codex.resetCreditsAvailableCount > 0 ? ProviderCardAction(
-                            title: "🎟️ 리셋권 \(codex.resetCreditsAvailableCount)장 보유 중",
-                            subtitle: "사용 즉시 한도가 100%로 복구됩니다",
-                            buttonTitle: isConsumingResetCredit ? "리셋 중..." : "지금 리셋",
-                            icon: "arrow.counterclockwise.circle.fill",
-                            tintColor: .purple,
-                            isLoading: isConsumingResetCredit,
-                            action: {
-                                resetAlert = .confirm
+                        let codexAction: ProviderCardAction? = {
+                            if codex.isConnected && codex.resetCreditsAvailableCount > 0 {
+                                return ProviderCardAction(
+                                    title: "🎟️ 리셋권 \(codex.resetCreditsAvailableCount)장 보유 중",
+                                    subtitle: "사용 즉시 한도가 100%로 복구됩니다",
+                                    buttonTitle: isConsumingResetCredit ? "리셋 중..." : "지금 리셋",
+                                    icon: "arrow.counterclockwise.circle.fill",
+                                    tintColor: .purple,
+                                    isLoading: isConsumingResetCredit,
+                                    action: {
+                                        resetAlert = .confirm
+                                    }
+                                )
+                            } else if !codex.isConnected {
+                                if CodexService.shared.hasCliInstalled {
+                                    return ProviderCardAction(
+                                        title: "Codex 계정 연결 (OAuth)",
+                                        subtitle: "터미널에서 로그인하여 실시간 쿼터 연동",
+                                        buttonTitle: "터미널에서 로그인",
+                                        icon: "terminal.fill",
+                                        tintColor: .purple,
+                                        action: {
+                                            CodexService.shared.launchTerminalLogin {
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                                                    appState.refreshCodex()
+                                                }
+                                            }
+                                        }
+                                    )
+                                } else {
+                                    return ProviderCardAction(
+                                        title: "Codex CLI 자동 설치 & 연동",
+                                        subtitle: "원클릭으로 터미널을 열어 Codex를 자동 설치합니다",
+                                        buttonTitle: "터미널에서 자동 설치",
+                                        icon: "arrow.down.circle.fill",
+                                        tintColor: .purple,
+                                        action: {
+                                            CodexService.shared.launchTerminalInstallAndLogin {
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+                                                    appState.refreshCodex()
+                                                }
+                                            }
+                                        }
+                                    )
+                                }
                             }
-                        ) : nil
+                            return nil
+                        }()
                         
                         ProviderCardView(
                             iconName: "cpu",
@@ -145,7 +182,7 @@ public struct PopoverView: View {
                             extraDetails: codexDetails,
                             badgeText: codex.isConnected && codex.resetCreditsAvailableCount > 0 ? "🎟️ 리셋권 \(codex.resetCreditsAvailableCount)장" : nil,
                             badgeColor: .purple,
-                            customAction: resetAction,
+                            customAction: codexAction,
                             usageMode: codex.currentMode(hasApiKey: hasCodexApiKey),
                             onRefresh: {
                                 appState.refreshCodex()
@@ -168,6 +205,39 @@ public struct PopoverView: View {
                             )
                         }()
                         
+                        let geminiAction: ProviderCardAction? = {
+                            if !gemini.isConnected {
+                                if GeminiService.shared.hasAgyInstalled {
+                                    return ProviderCardAction(
+                                        title: "Google Antigravity 쿼터 동기화",
+                                        subtitle: "터미널을 열어 구글 계정 쿼터를 갱신합니다",
+                                        buttonTitle: "터미널에서 갱신",
+                                        icon: "arrow.clockwise.circle.fill",
+                                        tintColor: .blue,
+                                        action: {
+                                            GeminiService.shared.launchTerminalLogin {
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                                                    appState.refreshGemini()
+                                                }
+                                            }
+                                        }
+                                    )
+                                } else {
+                                    return ProviderCardAction(
+                                        title: "Google Gemini 연동 (무료)",
+                                        subtitle: "Google AI Studio에서 1분 만에 무료 API 키 발급",
+                                        buttonTitle: "무료 API 키 발급",
+                                        icon: "key.fill",
+                                        tintColor: .blue,
+                                        action: {
+                                            GeminiService.shared.openAiStudioWeb()
+                                        }
+                                    )
+                                }
+                            }
+                            return nil
+                        }()
+                        
                         ProviderCardView(
                             iconName: "sparkles",
                             providerTitle: "Google Gemini",
@@ -178,6 +248,7 @@ public struct PopoverView: View {
                             errorMessage: gemini.errorMessage,
                             extraDetails: geminiDetails,
                             resetLabel: geminiSecondaryGauge != nil ? "5시간 리셋:" : "리셋:",
+                            customAction: geminiAction,
                             usageMode: gemini.currentMode(hasApiKey: hasGeminiApiKey),
                             primaryGaugeTitle: geminiSecondaryGauge != nil ? "5시간 세션 한도" : nil,
                             secondaryGauge: geminiSecondaryGauge,
@@ -218,20 +289,37 @@ public struct PopoverView: View {
                         
                         let claudeAction: ProviderCardAction? = {
                             if !claude.isConnected {
-                                return ProviderCardAction(
-                                    title: "Claude 계정 연결 (OAuth)",
-                                    subtitle: "터미널에서 로그인하여 실시간 쿼터 연동",
-                                    buttonTitle: "터미널에서 로그인",
-                                    icon: "terminal.fill",
-                                    tintColor: .purple,
-                                    action: {
-                                        ClaudeService.shared.launchTerminalLogin {
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                                                appState.refreshClaude()
+                                if ClaudeService.shared.hasCliInstalled {
+                                    return ProviderCardAction(
+                                        title: "Claude 계정 연결 (OAuth)",
+                                        subtitle: "터미널에서 로그인하여 실시간 쿼터 연동",
+                                        buttonTitle: "터미널에서 로그인",
+                                        icon: "terminal.fill",
+                                        tintColor: .purple,
+                                        action: {
+                                            ClaudeService.shared.launchTerminalLogin {
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                                                    appState.refreshClaude()
+                                                }
                                             }
                                         }
-                                    }
-                                )
+                                    )
+                                } else {
+                                    return ProviderCardAction(
+                                        title: "Claude CLI 자동 설치 & 로그인",
+                                        subtitle: "원클릭으로 터미널을 열어 Claude Code를 자동 설치합니다",
+                                        buttonTitle: "터미널에서 자동 설치",
+                                        icon: "arrow.down.circle.fill",
+                                        tintColor: .purple,
+                                        action: {
+                                            ClaudeService.shared.launchTerminalInstallAndLogin {
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+                                                    appState.refreshClaude()
+                                                }
+                                            }
+                                        }
+                                    )
+                                }
                             }
                             return nil
                         }()

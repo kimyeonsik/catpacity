@@ -3,6 +3,22 @@
 All notable changes to **Catpacity** will be documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.14] - 2026-10-16
+
+### 🚀 Codex & AI CLI 지능형 자동 설치 헬퍼 및 연동 허브 전면 개편
+- **🤖 Codex CLI 스마트 원클릭 자동 설치 & 로그인 도입**:
+  - Codex CLI가 미설치되어 있을 때 단순 명령어 텍스트만 보여주지 않고, **`[터미널에서 자동 설치]`** 원클릭 액션을 제공합니다.
+  - 시스템 환경(Homebrew, npm, Bun)을 자동 점검하여 최적의 방법으로 `@openai/codex`를 설치하고, 설치 완료 즉시 `codex login` 브라우저 인증 flow로 매끄럽게 연결합니다.
+  - 이미 설치되어 있는 경우 **`[터미널에서 로그인]`** 버튼으로 직행합니다.
+- **🌐 모든 AI 서비스(Claude, Gemini) 스마트 설치 & 연동 전면 검토 및 보강**:
+  - **Claude Code**: CLI 설치 여부에 따라 `[터미널에서 자동 설치 & 로그인]`과 `[터미널에서 로그인]`을 스마트하게 분기 제공합니다.
+  - **Google Gemini**: 미연동 시 1분 만에 평생 무료 키를 발급받을 수 있는 **`[무료 API 키 발급 (웹)]`** 바로가기 액션을 추가하고, Antigravity CLI 감지 시 원클릭 쿼터 동기화를 지원합니다.
+  - **설정창 연동 허브(Connection Hub) 전면 통합**: Codex, Gemini, Claude 모두에 실시간 연동 상태 인디케이터, 상세 바이너리/소스 감지 정보, 원클릭 터미널 설치/로그인 버튼을 제공하는 통일된 디자인을 완성했습니다.
+- **🖥️ 고양이 배너 기반 스마트 터미널 런처 (`TerminalHelper`)**:
+  - macOS 터미널 창에서 고양이 배너와 함께 친절한 한국어 안내 메시지를 출력하며, 완료 후 [Enter] 키로 깔끔하게 닫히도록 개선했습니다.
+
+---
+
 ## [1.4.13] - 2026-10-13
 
 ### 🚫 웹 무료 플랜(Claude Free) 전용 안내 및 쿼터 게이지 숨김 UX

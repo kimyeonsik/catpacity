@@ -32,6 +32,8 @@ public struct SettingsView: View {
     @State private var launchAtLogin: Bool = LaunchAtLoginHelper.isEnabled
     @AppStorage("catpacity_refresh_interval") private var refreshInterval: Int = 300 // 5 mins
     @AppStorage("catpacity_notify_on_high_usage") private var notifyHighUsage: Bool = true
+    @State private var codexStatusMessage: String? = nil
+    @State private var geminiStatusMessage: String? = nil
     @State private var claudeHookStatusMessage: String? = nil
     
     let speedOptions: [(Double, String)] = [
@@ -320,23 +322,221 @@ public struct SettingsView: View {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.accentColor)
                 
-                ApiKeyInputRow(
-                    title: "OpenAI API 키 (선택사항 - Codex)",
-                    subtitle: "미입력 시 Codex CLI 및 계정 쿼터 자동 연동",
-                    placeholder: "OpenAI API 키 입력...",
-                    apiKey: $codexApiKey,
-                    onCommit: { appState.refreshCodex() }
-                )
+                // OpenAI Codex Connection Hub
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "cpu")
+                            .font(.system(size: 11))
+                            .foregroundColor(.purple)
+                        Text("OpenAI Codex 연동 상태:")
+                            .font(.system(size: 11.5, weight: .bold))
+                        
+                        Circle()
+                            .fill(appState.overallUsage.codex.isConnected ? Color.green : Color.red.opacity(0.8))
+                            .frame(width: 7, height: 7)
+                        
+                        Text(appState.overallUsage.codex.isConnected ? appState.overallUsage.codex.planType : "미연동")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(appState.overallUsage.codex.isConnected ? .green : .red.opacity(0.8))
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            appState.refreshCodex()
+                        }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 9))
+                                Text("연결 확인")
+                                    .font(.system(size: 9.5))
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.mini)
+                    }
+                    
+                    Text("상세 상태: \(CodexService.shared.detectedSourceDescription)")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                    
+                    Divider().opacity(0.4)
+                    
+                    // 방법 1: 터미널 스마트 설치 & OAuth 로그인
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("방법 1. 터미널 스마트 자동 설치 & 로그인 (권장)")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.primary)
+                        Text("버튼 클릭 시 터미널을 열어 시스템 환경에 맞춰 Codex CLI를 자동 설치하고 OpenAI 계정 로그인을 진행합니다.")
+                            .font(.system(size: 9.5))
+                            .foregroundColor(.secondary)
+                        
+                        HStack(spacing: 8) {
+                            Button(action: {
+                                if CodexService.shared.hasCliInstalled {
+                                    CodexService.shared.launchTerminalLogin {
+                                        codexStatusMessage = "터미널에서 로그인을 진행해주세요. 완료 후 [연결 확인]을 눌러주세요."
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+                                            appState.refreshCodex()
+                                        }
+                                    }
+                                } else {
+                                    CodexService.shared.launchTerminalInstallAndLogin {
+                                        codexStatusMessage = "터미널에서 설치 및 로그인이 진행 중입니다. 완료 후 [연결 확인]을 눌러주세요."
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                                            appState.refreshCodex()
+                                        }
+                                    }
+                                }
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: CodexService.shared.hasCliInstalled ? "terminal.fill" : "arrow.down.circle.fill")
+                                        .font(.system(size: 10))
+                                    Text(CodexService.shared.hasCliInstalled ? "터미널 열고 로그인 ('codex login')" : "터미널 열고 자동 설치 & 로그인")
+                                        .font(.system(size: 10.5, weight: .semibold))
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.purple)
+                            .controlSize(.small)
+                        }
+                        
+                        if let msg = codexStatusMessage {
+                            Text(msg)
+                                .font(.system(size: 9.5))
+                                .foregroundColor(.purple)
+                                .padding(.top, 2)
+                        }
+                    }
+                    .padding(8)
+                    .background(Color.purple.opacity(0.06))
+                    .cornerRadius(6)
+                    
+                    Divider().opacity(0.4)
+                    
+                    // 방법 2: OpenAI API 키 직접 입력
+                    ApiKeyInputRow(
+                        title: "방법 2. OpenAI API 키 직접 입력 (선택사항)",
+                        subtitle: "OpenAI Platform API 키 입력 시 실시간 토큰/비용 추적",
+                        placeholder: "sk-... 입력",
+                        apiKey: $codexApiKey,
+                        onCommit: { appState.refreshCodex() }
+                    )
+                }
+                .padding(8)
+                .background(Color.primary.opacity(0.02))
+                .cornerRadius(6)
                 
                 Divider().opacity(0.4)
                 
-                ApiKeyInputRow(
-                    title: "Gemini API 키 (선택사항)",
-                    subtitle: "미입력 시 Antigravity CLI 및 계정 쿼터 자동 연동",
-                    placeholder: "Gemini API 키 입력...",
-                    apiKey: $geminiApiKey,
-                    onCommit: { appState.refreshGemini() }
-                )
+                // Google Gemini Connection Hub
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 11))
+                            .foregroundColor(.blue)
+                        Text("Google Gemini 연동 상태:")
+                            .font(.system(size: 11.5, weight: .bold))
+                        
+                        Circle()
+                            .fill(appState.overallUsage.gemini.isConnected ? Color.green : Color.red.opacity(0.8))
+                            .frame(width: 7, height: 7)
+                        
+                        Text(appState.overallUsage.gemini.isConnected ? appState.overallUsage.gemini.planName : "미연동")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(appState.overallUsage.gemini.isConnected ? .green : .red.opacity(0.8))
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            appState.refreshGemini()
+                        }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 9))
+                                Text("연결 확인")
+                                    .font(.system(size: 9.5))
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.mini)
+                    }
+                    
+                    Text("상세 상태: \(GeminiService.shared.detectedSourceDescription)")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                    
+                    Divider().opacity(0.4)
+                    
+                    // 방법 1: Google AI Studio 무료 API 키 발급
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("방법 1. Google AI Studio 무료 API 키 발급 (권장)")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.primary)
+                        Text("구글 계정만 있으면 신용카드 없이 1분 만에 평생 무료(Free tier) 키를 발급받을 수 있습니다.")
+                            .font(.system(size: 9.5))
+                            .foregroundColor(.secondary)
+                        
+                        HStack(spacing: 8) {
+                            Button(action: {
+                                GeminiService.shared.openAiStudioWeb()
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "safari.fill")
+                                        .font(.system(size: 10))
+                                    Text("무료 API 키 발급 웹페이지 열기")
+                                        .font(.system(size: 10.5, weight: .semibold))
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.blue)
+                            .controlSize(.small)
+                            
+                            if GeminiService.shared.hasAgyInstalled {
+                                Button(action: {
+                                    GeminiService.shared.launchTerminalLogin {
+                                        geminiStatusMessage = "Antigravity 동기화 완료 후 [연결 확인]을 눌러주세요."
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                                            appState.refreshGemini()
+                                        }
+                                    }
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "arrow.clockwise")
+                                            .font(.system(size: 10))
+                                        Text("Antigravity 쿼터 동기화")
+                                            .font(.system(size: 10))
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                        }
+                        
+                        if let msg = geminiStatusMessage {
+                            Text(msg)
+                                .font(.system(size: 9.5))
+                                .foregroundColor(.blue)
+                                .padding(.top, 2)
+                        }
+                    }
+                    .padding(8)
+                    .background(Color.blue.opacity(0.06))
+                    .cornerRadius(6)
+                    
+                    Divider().opacity(0.4)
+                    
+                    // 방법 2: Gemini API 키 직접 입력
+                    ApiKeyInputRow(
+                        title: "방법 2. Gemini API 키 직접 입력",
+                        subtitle: "Google AI Studio에서 발급받은 API 키를 입력하세요",
+                        placeholder: "AIzaSy... 입력",
+                        apiKey: $geminiApiKey,
+                        onCommit: { appState.refreshGemini() }
+                    )
+                }
+                .padding(8)
+                .background(Color.primary.opacity(0.02))
+                .cornerRadius(6)
                 
                 Divider().opacity(0.4)
                 
@@ -379,28 +579,28 @@ public struct SettingsView: View {
                     
                     Divider().opacity(0.4)
                     
-                    // 방법 1: 터미널 OAuth 로그인 Flow
+                    // 방법 1: 터미널 스마트 설치 & OAuth 로그인
                     VStack(alignment: .leading, spacing: 5) {
-                        Text("방법 1. 터미널 공식 OAuth 로그인 (권장)")
+                        Text("방법 1. 터미널 스마트 자동 설치 & 로그인 (권장)")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundColor(.primary)
-                        Text("버튼 클릭 시 터미널을 열어 'claude login'을 실행합니다. 브라우저 인증을 완료하면 5시간/7일 공식 쿼터가 실시간 자동 연동됩니다.")
+                        Text("버튼 클릭 시 터미널을 열어 시스템 환경에 맞춰 Claude Code를 자동 설치하고 계정 로그인을 진행합니다.")
                             .font(.system(size: 9.5))
                             .foregroundColor(.secondary)
                         
                         HStack(spacing: 8) {
                             Button(action: {
                                 ClaudeService.shared.launchTerminalLogin {
-                                    claudeHookStatusMessage = "터미널에서 로그인을 진행해주세요. 완료 후 [연결 확인]을 눌러주세요."
+                                    claudeHookStatusMessage = "터미널에서 작업을 진행해주세요. 완료 후 [연결 확인]을 눌러주세요."
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
                                         appState.refreshClaude()
                                     }
                                 }
                             }) {
                                 HStack(spacing: 4) {
-                                    Image(systemName: "terminal.fill")
+                                    Image(systemName: ClaudeService.shared.hasCliInstalled ? "terminal.fill" : "arrow.down.circle.fill")
                                         .font(.system(size: 10))
-                                    Text("터미널 열고 로그인 ('claude login')")
+                                    Text(ClaudeService.shared.hasCliInstalled ? "터미널 열고 로그인 ('claude login')" : "터미널 열고 자동 설치 & 로그인")
                                         .font(.system(size: 10.5, weight: .semibold))
                                 }
                             }
