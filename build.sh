@@ -23,18 +23,35 @@ fi
 SDK_PATH="/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"
 export DEVELOPER_DIR="/Library/Developer/CommandLineTools"
 
-echo "⚡️ Compiling Swift sources..."
+echo "⚡️ 1. Compiling Swift sources for Apple Silicon (arm64)..."
 xcrun swiftc \
     -sdk "$SDK_PATH" \
     -target arm64-apple-macos13.0 \
     -O \
     -parse-as-library \
-    -o "$MACOS_DIR/$APP_NAME" \
+    -o "$MACOS_DIR/${APP_NAME}_arm64" \
     Sources/Models/*.swift \
     Sources/Helpers/*.swift \
     Sources/Services/*.swift \
     Sources/Views/*.swift \
     Sources/Main.swift
+
+echo "⚡️ 2. Compiling Swift sources for Intel (x86_64)..."
+xcrun swiftc \
+    -sdk "$SDK_PATH" \
+    -target x86_64-apple-macos13.0 \
+    -O \
+    -parse-as-library \
+    -o "$MACOS_DIR/${APP_NAME}_x86_64" \
+    Sources/Models/*.swift \
+    Sources/Helpers/*.swift \
+    Sources/Services/*.swift \
+    Sources/Views/*.swift \
+    Sources/Main.swift
+
+echo "🔗 3. Creating Universal Binary (arm64 + x86_64)..."
+lipo -create -output "$MACOS_DIR/$APP_NAME" "$MACOS_DIR/${APP_NAME}_arm64" "$MACOS_DIR/${APP_NAME}_x86_64"
+rm -f "$MACOS_DIR/${APP_NAME}_arm64" "$MACOS_DIR/${APP_NAME}_x86_64"
 
 echo "🔏 Applying ad-hoc code signature..."
 codesign --force --deep --sign - "$BUNDLE_DIR" 2>/dev/null || true

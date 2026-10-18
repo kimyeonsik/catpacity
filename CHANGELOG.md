@@ -3,6 +3,18 @@
 All notable changes to **Catpacity** will be documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.15] - 2026-10-19
+
+### 🍎 Intel Mac & Apple Silicon 완벽 지원: Universal 2 Binary 빌드 도입
+- **🌐 인텔 맥(x86_64)과 애플 실리콘(arm64) 동시 지원 (Universal Binary)**:
+  - 기존 배포본이 Apple Silicon(arm64) 단일 아키텍처로 컴파일되어 있어 인텔 맥(Intel Core i5/i7/i9 탑재 Mac)에서 실행되지 않던 문제를 완벽히 해결했습니다.
+  - Swift 컴파일러로 `arm64-apple-macos13.0` 및 `x86_64-apple-macos13.0` 두 아키텍처를 모두 컴파일한 후, `lipo`를 통해 하나의 **Universal 2 Binary**로 결합하여 배포합니다.
+  - 구형 Intel Mac과 최신 Apple Silicon Mac(M1/M2/M3/M4) 모두에서 Rosetta 에뮬레이션 없이 네이티브로 최고 속도로 실행됩니다.
+- **📦 배포 패키지 (.dmg, .pkg, .zip) 유니버설 아키텍처 적용**:
+  - 설치용 DMG 디스크 이미지, PKG 인스톨러, ZIP 아카이브 모두에 Universal Binary를 탑재하여 어떤 Mac 환경에서도 다운로드 즉시 실행할 수 있습니다.
+
+---
+
 ## [1.4.14] - 2026-10-16
 
 ### 🚀 Codex & AI CLI 지능형 자동 설치 헬퍼 및 연동 허브 전면 개편
