@@ -11,7 +11,7 @@ public class UpdateCheckerService {
     }
     
     public func checkForUpdates(manual: Bool = false, completion: @escaping (_ updateAvailable: Bool, _ latestTag: String, _ releaseUrl: String, _ errorMsg: String?) -> Void) {
-        guard let url = URL(string: "https://api.github.com/repos/\(repo)/releases/latest") else {
+        guard let url = URL(string: "https://api.github.com/repos/\(repo)/releases?per_page=100") else {
             completion(false, "", "", "유효하지 않은 URL")
             return
         }
@@ -32,8 +32,10 @@ public class UpdateCheckerService {
                 return
             }
             
-            guard let data = data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+                  let data = data,
+                  let releases = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+                  let json = Self.catpacityRelease(from: releases),
                   let tagName = json["tag_name"] as? String,
                   let releaseUrl = json["html_url"] as? String else {
                 DispatchQueue.main.async {
@@ -51,6 +53,25 @@ public class UpdateCheckerService {
                 completion(isNewer, tagName, releaseUrl, nil)
             }
         }.resume()
+    }
+
+    /// CatWorks shares this repository's Releases, but is a separate product.
+    /// Never offer its tag or its DMG to Catpacity's own updater.
+    static func catpacityRelease(from releases: [[String: Any]]) -> [String: Any]? {
+        releases.filter { release in
+            guard release["draft"] as? Bool != true, release["prerelease"] as? Bool != true,
+                  let tag = release["tag_name"] as? String,
+                  tag.range(of: "^[vV]?[0-9]+(?:\\.[0-9]+){1,3}$", options: .regularExpression) != nil,
+                  let url = release["html_url"] as? String,
+                  url == "https://github.com/kimyeonsik/catpacity/releases/tag/\(tag)",
+                  let assets = release["assets"] as? [[String: Any]] else { return false }
+            return assets.contains { asset in
+                guard let name = asset["name"] as? String else { return false }
+                return name == "Catpacity-macOS.zip" || name == "Catpacity-\(tag)-macOS.zip"
+            }
+        }.sorted {
+            shared.compareVersions(latest: $0["tag_name"] as! String, current: $1["tag_name"] as! String)
+        }.first
     }
     
     public func compareVersions(latest: String, current: String) -> Bool {

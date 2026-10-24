@@ -1,10 +1,17 @@
 import AppKit
 import SwiftUI
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+@MainActor
+class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     var statusItem: NSStatusItem!
     var popover: NSPopover!
     var appState: AppState!
+    #if CATPACITY_VERIFICATION
+    let catWorks = IntegrationVerification.makeStore()
+    #else
+    let catWorks = CatWorksStore()
+    #endif
+    lazy var catWorksLifecycle = CatWorksPollingLifecycle(store: catWorks)
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Enforce accessory policy (menu bar agent)
@@ -23,28 +30,43 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         // Initialize App State
+        #if CATPACITY_VERIFICATION
+        appState = IntegrationAppState()
+        #else
         appState = AppState()
+        #endif
         
         // Setup Launch at Login (default on)
+        #if !CATPACITY_VERIFICATION
         LaunchAtLoginHelper.setupInitialState()
+        #endif
         
         // Setup Popover
         let popover = NSPopover()
         popover.behavior = .transient
         popover.animates = true
+        popover.delegate = self
         self.popover = popover
+
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(workspaceWillSleep), name: NSWorkspace.willSleepNotification, object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(workspaceDidWake), name: NSWorkspace.didWakeNotification, object: nil)
         
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(screenWillSleep), name: NSWorkspace.screensDidSleepNotification, object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(screenDidWake), name: NSWorkspace.screensDidWakeNotification, object: nil)
+
         // Listen for dynamic popover content resize
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("CatpacityPopoverResize"),
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            guard let self = self, self.popover.isShown,
-                  let host = self.popover.contentViewController else { return }
-            let fitting = host.view.fittingSize
-            if fitting.width > 0 && fitting.height > 0 {
-                self.popover.contentSize = fitting
+            Task { @MainActor [weak self] in
+                guard let self = self, self.popover.isShown,
+                      let host = self.popover.contentViewController else { return }
+                let fitting = host.view.fittingSize
+                if fitting.width > 0 && fitting.height > 0 {
+                    self.popover.contentSize = fitting
+                }
             }
         }
         
@@ -61,7 +83,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         // Request notifications
+        #if !CATPACITY_VERIFICATION
         NotificationService.shared.requestAuthorization()
+        #endif
         
         // Initial menu bar update
         appState.updateMenuBar()
@@ -69,6 +93,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Automatically pop open on launch so the user sees it immediately!
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             self?.showPopover()
+            #if CATPACITY_VERIFICATION
+            if let self { IntegrationVerification.runChecks(self) }
+            #endif
         }
     }
     
@@ -105,7 +132,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Re-host view to ensure fresh data
         let hosting = NSHostingController(
-            rootView: PopoverView(appState: appState)
+            rootView: PopoverView(appState: appState, catWorks: catWorks)
         )
         popover.contentViewController = hosting
         
@@ -120,6 +147,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Auto-check for updates if needed
         appState.checkAutoUpdateIfNeeded()
     }
+
+    func popoverDidShow(_ notification: Notification) { catWorksLifecycle.setVisible(true) }
+    func popoverWillClose(_ notification: Notification) { catWorksLifecycle.setVisible(false) }
+    func popoverDidClose(_ notification: Notification) { catWorksLifecycle.setVisible(false) }
+    @objc private func workspaceWillSleep() { catWorksLifecycle.setSleeping(true) }
+    @objc private func workspaceDidWake() { catWorksLifecycle.setSleeping(false) }
+    @objc private func screenWillSleep() { catWorksLifecycle.setScreenSleeping(true) }
+    @objc private func screenDidWake() { catWorksLifecycle.setScreenSleeping(false) }
+    func applicationWillTerminate(_ notification: Notification) { catWorks.stopPolling() }
     
     private func setupStandardEditMenu() {
         let mainMenu = NSMenu()
@@ -179,6 +215,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct CatpacityMain {
     static func main() {
+        #if CATPACITY_VERIFICATION
+        IntegrationVerification.prepare()
+        #endif
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate

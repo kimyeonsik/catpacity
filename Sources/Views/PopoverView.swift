@@ -23,6 +23,7 @@ private enum ResetAlertItem: Identifiable {
 
 public struct PopoverView: View {
     @ObservedObject var appState: AppState
+    @ObservedObject var catWorks: CatWorksStore
     @State private var showingSettings = false
     @State private var measuredCardsHeight: CGFloat = 0
     @State private var resetAlert: ResetAlertItem? = nil
@@ -43,6 +44,11 @@ public struct PopoverView: View {
         let activeStage = appState.activeCatStage
         
         VStack(spacing: 12) {
+            #if CATPACITY_VERIFICATION
+            Text(IntegrationVerification.banner)
+                .font(.system(size: 10, weight: .semibold)).foregroundColor(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+            #endif
             // Header: Dynamic Retro Animated Pixel Cat Graphic + Quote
             let headerInfo = appState.catHeaderInfo
             CatIllustrationView(
@@ -118,6 +124,8 @@ public struct PopoverView: View {
             // Cards Container: Dynamically expands to content; only scrolls if screen height limit is reached
             ScrollView(.vertical, showsIndicators: measuredCardsHeight > maxAllowedCardsHeight) {
                 VStack(spacing: 10) {
+                    CatWorksCardView(store: catWorks)
+                    Group {
                     if showCodex {
                         // Codex Card
                         let codex = appState.overallUsage.codex
@@ -360,6 +368,10 @@ public struct PopoverView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 24)
                     }
+                    }
+                    #if CATPACITY_VERIFICATION
+                    .disabled(true) // Login, reset-credit and account actions are not part of fixture verification.
+                    #endif
                 }
                 .padding(.horizontal, 2)
                 .background(
@@ -401,6 +413,9 @@ public struct PopoverView: View {
                 }
                 .buttonStyle(.plain)
                 .help("설정")
+                #if CATPACITY_VERIFICATION
+                .disabled(true)
+                #endif
                 
                 Button(action: {
                     NSApplication.shared.terminate(nil)

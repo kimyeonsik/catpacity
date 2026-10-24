@@ -6,3 +6,9 @@ DerivedData/
 *.swp
 *~
 .build/
+
+# Local execution history and machine-specific verification reports
+/docs/*-live-check.json
+/docs/catpacity-application-preparation-*.json
+/docs/catworks-integration-work-map.md
+/docs/catworks-integration-verification.md

@@ -19,17 +19,17 @@ public enum LaunchAtLoginHelper {
         }
     }
     
-    /// Initializes and synchronizes login item status on app launch.
+    /// Registers the default only on first setup. Existing OS choices survive relaunches.
     public static func setupInitialState() {
-        let isFirstTime = UserDefaults.standard.object(forKey: userDefaultsKey) == nil
-        if isFirstTime {
-            // Checkbox defaults to ON
-            UserDefaults.standard.set(true, forKey: userDefaultsKey)
-        }
-        
-        if isEnabled {
-            sync(enable: true)
-        }
+        setupInitialState(defaults: .standard, synchronize: sync)
+    }
+
+    static func setupInitialState(defaults: UserDefaults, synchronize: (Bool) -> Void) {
+        // Re-registering an existing preference can undo a change in System Settings.
+        // Explicit checkbox changes still synchronize through the isEnabled setter.
+        guard defaults.object(forKey: userDefaultsKey) == nil else { return }
+        defaults.set(true, forKey: userDefaultsKey)
+        synchronize(true)
     }
     
     /// Synchronizes the state with macOS SMAppService

@@ -74,11 +74,41 @@ curl -fsSL https://raw.githubusercontent.com/kimyeonsik/catpacity/main/install-r
 
 ## 🚀 빠른 시작
 
+### CatWorks 사무실 연결
+
+팝오버에서 **CatWorks 사무실 미리보기**를 보고, 눌러 전체 사무실을 열 수 있습니다. ‘통계 보기’는 CatWorks의 사용량 화면을 엽니다. 기존 공급자 카드와 메뉴바 고양이의 구독 잔여량 표시는 유지합니다.
+
+CatWorks가 설치되지 않았다면 다운로드·설치 배너를 표시합니다. 설치 버튼을 누르면 이 저장소의 `catworks-*` 공개 릴리스에서 설치 파일을 확인하여 `~/Applications`에 설치합니다. 기존 앱과 macOS 보안 설정은 변경하지 않습니다.
+
+연결에는 CatWorks의 로컬 서버(`http://127.0.0.1:4318`)를 사용하며 API 키가 필요하지 않습니다. 팝오버를 열었을 때만 15초 간격으로 상태를 조회하고, 닫거나 Mac이 잠들면 조회를 멈춥니다. 다른 포트의 자동 탐색은 아직 지원하지 않습니다. 소스 변경과 설치 파일 배포는 별도이므로 다운로드할 버전의 릴리스 안내를 확인해 주세요.
+
 ### 앱 바로 실행하기
 ```bash
 cd /Volumes/T7/Projects/my-ai/Catpacity
 ./run.sh
 ```
+
+### 개발자 검증
+
+```bash
+bash Tests/run-catworks-tests.sh
+bash Tests/run-legacy-tests.sh
+bash Tests/run-startup-preservation-tests.sh
+python3 Tests/test_preservation.py
+```
+
+`bash build.sh`는 Apple Silicon과 Intel을 지원하는 Universal 앱을 만듭니다. 기본 Xcode/Command Line Tools SDK를 사용하며, 필요하면 `CATPACITY_SDK_PATH`로 사용할 SDK를 지정할 수 있습니다.
+
+기존 계정·로그인 항목을 건드리지 않고 화면을 확인하려면 별도 식별자를 사용하는 검증 앱을 빌드하세요.
+
+```bash
+bash build.sh verification
+open ".build/Catpacity Verification.app"
+```
+
+검증 앱은 계정·업데이트 서비스를 테스트 대체물로 연결합니다. CatWorks 미리보기는 실제 로컬 서버를 읽으며, `--fixtures`를 전달하면 테스트 자료를 사용합니다. 검증 앱 실행만으로 실제 로그인이나 업데이트 설치가 검증되는 것은 아닙니다.
+
+추가 개발 도구는 `Tools/`에 있습니다. `record-integration-build.py --build`는 소스와 빌드 기록을 `.build/`에 보관하고, `preview-catworks.sh`는 카드만 표시하는 미리보기를 만듭니다. `Tests/run-action-tests.sh --build-only <새 앱 경로>`로 만든 앱에서는 안내에 따라 버튼을 직접 눌러 확인합니다.
 
 ### Mac Applications(/Applications)에 정식 설치하기
 ```bash

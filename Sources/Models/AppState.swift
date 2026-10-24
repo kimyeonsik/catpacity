@@ -188,10 +188,14 @@ public class AppState: ObservableObject {
         PowerHelper.stopMonitoringPowerSource()
     }
     
+    static func initializeMenuBarPreference(defaults: UserDefaults) {
+        // A saved mode is a user choice, including the legacy cat_only mode.
+        guard defaults.object(forKey: "catpacity_menubar_mode") == nil else { return }
+        defaults.set("cat_twoline", forKey: "catpacity_menubar_mode")
+    }
+
     public init() {
-        if UserDefaults.standard.string(forKey: "catpacity_menubar_mode") == nil || UserDefaults.standard.string(forKey: "catpacity_menubar_mode") == "cat_only" {
-            UserDefaults.standard.set("cat_twoline", forKey: "catpacity_menubar_mode")
-        }
+        Self.initializeMenuBarPreference(defaults: .standard)
         
         setupSleepAndPowerObservers()
         
